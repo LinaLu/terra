@@ -13,7 +13,7 @@ Two new nullable columns on the existing `boards` table:
 
 | Column | Type | Notes |
 |---|---|---|
-| `short_code` | `VARCHAR(8)`, unique, nullable | `NULL` means no active link |
+| `short_code` | `VARCHAR(6)`, unique, nullable | `NULL` means no active link |
 | `link_expires_at` | `TIMESTAMP`, nullable | `NULL` means no active link |
 
 - When a new link is generated, both columns are written atomically (overwriting any previous values).
@@ -35,7 +35,7 @@ Resolve a short code to a board.
 
 - Looks up the board by `short_code`.
 - Returns board data if found and `link_expires_at > now()`.
-- Returns 404 (with message `"Link expired or not found"`) if the code is expired, never existed, or belongs to a deleted board. No distinction is made between these cases to avoid leaking board existence.
+- Returns 404 (with message `"Link expired or not found"`) if the code is expired or never existed. No distinction is made between these cases.
 
 ### `GET /api/boards/{id}`
 Get a single board by internal ID. Needed for the normal (non-shared) board navigation flow.
