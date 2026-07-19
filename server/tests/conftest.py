@@ -1,5 +1,7 @@
-import sys
 import os
+os.environ.setdefault("DATABASE_URL", "sqlite:///:memory:")
+
+import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
