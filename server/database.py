@@ -1,7 +1,7 @@
 """Database configuration and models."""
 
 import os
-from sqlalchemy import create_engine, Column, Integer, String
+from sqlalchemy import create_engine, Column, Integer, String, ForeignKey, DateTime
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from dotenv import load_dotenv
@@ -24,11 +24,36 @@ Base = declarative_base()
 # Board model
 class Board(Base):
     """Board model representing a retrospective board."""
-    
+
     __tablename__ = "boards"
-    
+
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     name = Column(String, nullable=False, index=True)
+
+
+# BoardColumn model
+class BoardColumn(Base):
+    """Column belonging to a board."""
+
+    __tablename__ = "columns"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    board_id = Column(Integer, ForeignKey("boards.id"), nullable=False)
+    name = Column(String, nullable=False)
+    position = Column(Integer, nullable=False)
+
+
+# Card model
+class Card(Base):
+    """Card belonging to a column."""
+
+    __tablename__ = "cards"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    column_id = Column(Integer, ForeignKey("columns.id"), nullable=False)
+    content = Column(String, nullable=False)
+    author = Column(String, nullable=False)
+    created_at = Column(DateTime, nullable=False)
 
 
 # Dependency to get DB session
