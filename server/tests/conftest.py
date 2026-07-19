@@ -1,9 +1,12 @@
 import os
-os.environ.setdefault("DATABASE_URL", "sqlite:///:memory:")
-
 import sys
+import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# Create a temporary database file for testing
+_test_db_fd, _test_db_path = tempfile.mkstemp(suffix=".db")
+os.environ["DATABASE_URL"] = f"sqlite:///{_test_db_path}"
 
 import pytest
 from unittest.mock import patch
@@ -13,28 +16,37 @@ from sqlalchemy.orm import sessionmaker
 from database import Base, get_db
 from main import app
 
-engine = create_engine(
-    "sqlite:///:memory:",
+# Create test engine with the file-based database
+test_engine = create_engine(
+    f"sqlite:///{_test_db_path}",
     connect_args={"check_same_thread": False},
 )
-TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
 
 
 @pytest.fixture(autouse=True)
 def reset_db():
-    Base.metadata.create_all(bind=engine)
+    Base.metadata.create_all(bind=test_engine)
     yield
-    Base.metadata.drop_all(bind=engine)
+    Base.metadata.drop_all(bind=test_engine)
+
+
+@pytest.fixture
+def db():
+    """Provide a database session for direct database queries in tests."""
+    db_session = TestingSessionLocal()
+    yield db_session
+    db_session.close()
 
 
 @pytest.fixture
 def client():
     def override_get_db():
-        db = TestingSessionLocal()
+        db_session = TestingSessionLocal()
         try:
-            yield db
+            yield db_session
         finally:
-            db.close()
+            db_session.close()
 
     app.dependency_overrides[get_db] = override_get_db
     with patch("main.init_db"):
