@@ -39,7 +39,9 @@ def test_get_cards_only_returns_cards_for_requested_board(client):
 
     client.post(f"/api/boards/{board_a}/cards", json={"column_id": col_a, "content": "Only in A", "author": "X"})
 
-    cards_b = client.get(f"/api/boards/{board_b}/cards").json()
+    response = client.get(f"/api/boards/{board_b}/cards")
+    assert response.status_code == 200
+    cards_b = response.json()
     assert cards_b == []
 
 
