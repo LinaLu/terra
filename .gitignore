@@ -39,4 +39,3 @@ Thumbs.db
 *.db
 *.sqlite
 postgres_data/
-.superpowers/

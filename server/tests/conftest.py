@@ -1,25 +1,26 @@
 import os
 import sys
-import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# Create a temporary database file for testing
-_test_db_fd, _test_db_path = tempfile.mkstemp(suffix=".db")
-os.environ["DATABASE_URL"] = f"sqlite:///{_test_db_path}"
+os.environ["DATABASE_URL"] = "sqlite:///:memory:"
 
 import pytest
 from unittest.mock import patch
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
 from database import Base, get_db
 from main import app
 
-# Create test engine with the file-based database
+# Create test engine with in-memory SQLite database
+# StaticPool ensures all connections share a single underlying connection,
+# so all sessions see the same in-memory database.
 test_engine = create_engine(
-    f"sqlite:///{_test_db_path}",
+    "sqlite:///:memory:",
     connect_args={"check_same_thread": False},
+    poolclass=StaticPool,
 )
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
 
