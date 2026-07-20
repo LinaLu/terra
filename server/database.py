@@ -53,7 +53,7 @@ class Card(Base):
     column_id = Column(Integer, ForeignKey("columns.id"), nullable=False)
     content = Column(String, nullable=False)
     author = Column(String, nullable=False)
-    created_at = Column(DateTime, nullable=False)
+    created_at = Column(DateTime(timezone=True), nullable=False)
 
 
 # Dependency to get DB session

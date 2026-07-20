@@ -12,6 +12,7 @@ export default function CardForm({ boardId, columnId, onCardCreated }: CardFormP
   const [content, setContent] = useState('');
   const [author, setAuthor] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -24,11 +25,13 @@ export default function CardForm({ boardId, columnId, onCardCreated }: CardFormP
         author: author.trim(),
       });
       onCardCreated(newCard);
+      setError(null);
       setContent('');
       setAuthor('');
       setOpen(false);
     } catch (err) {
       console.error('Failed to create card:', err);
+      setError('Failed to add card. Please try again.');
     } finally {
       setSubmitting(false);
     }
@@ -38,6 +41,7 @@ export default function CardForm({ boardId, columnId, onCardCreated }: CardFormP
     setOpen(false);
     setContent('');
     setAuthor('');
+    setError(null);
   };
 
   if (!open) {
@@ -67,6 +71,11 @@ export default function CardForm({ boardId, columnId, onCardCreated }: CardFormP
         placeholder="Your name"
         style={{ width: '100%', padding: '6px', fontSize: '0.875rem', border: '1px solid #ccc', borderRadius: '4px', boxSizing: 'border-box' }}
       />
+      {error && (
+        <div style={{ color: '#721c24', backgroundColor: '#f8d7da', border: '1px solid #f5c6cb', padding: '6px', borderRadius: '4px', fontSize: '0.875rem' }}>
+          {error}
+        </div>
+      )}
       <div style={{ display: 'flex', gap: '6px' }}>
         <button
           type="submit"

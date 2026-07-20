@@ -4,11 +4,12 @@ from datetime import datetime, timezone
 from typing import List
 
 from fastapi import FastAPI, Depends, HTTPException
+from sqlalchemy.exc import OperationalError
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from database import get_db, init_db, Board, BoardColumn, Card
+from database import get_db, init_db, SessionLocal, Board, BoardColumn, Card
 
 app = FastAPI(title="Terra API", version="1.0.0")
 
@@ -73,6 +74,25 @@ class CardResponse(BaseModel):
 @app.on_event("startup")
 def startup_event():
     init_db()
+    # Seed default columns for boards that pre-date this feature (i.e. have no columns yet).
+    db = SessionLocal()
+    try:
+        boards_without_columns = (
+            db.query(Board)
+            .outerjoin(BoardColumn, Board.id == BoardColumn.board_id)
+            .filter(BoardColumn.id == None)  # noqa: E711
+            .all()
+        )
+        for board in boards_without_columns:
+            for col in _DEFAULT_COLUMNS:
+                db.add(BoardColumn(board_id=board.id, name=col["name"], position=col["position"]))
+        if boards_without_columns:
+            db.commit()
+    except OperationalError:
+        # Tables may not exist yet if init_db was skipped (e.g. in tests); safe to ignore.
+        db.rollback()
+    finally:
+        db.close()
     print("Database initialized successfully")
 
 
