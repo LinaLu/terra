@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import BoardForm from './components/BoardForm';
 import BoardList from './components/BoardList';
+import BoardPage from './components/BoardPage';
 import { boardApi, Board } from './services/api';
 
 function Home() {
@@ -57,7 +58,7 @@ function App() {
       </header>
       <Routes>
         <Route path="/" element={<Home />} />
-        <Route path="/boards/:id" element={<div style={{ padding: '20px' }}>Board page coming soon</div>} />
+        <Route path="/boards/:id" element={<BoardPage />} />
       </Routes>
     </div>
   );
