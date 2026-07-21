@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { Board } from '../services/api';
 
 interface BoardListProps {
@@ -18,20 +19,10 @@ export default function BoardList({ boards }: BoardListProps) {
       <h2>Boards</h2>
       <ul style={{ listStyle: 'none', padding: 0 }}>
         {boards.map((board) => (
-          <li
-            key={board.id}
-            style={{
-              padding: '10px',
-              margin: '10px 0',
-              border: '1px solid #ddd',
-              borderRadius: '4px',
-              backgroundColor: '#f9f9f9',
-            }}
-          >
-            <strong>{board.name}</strong>
-            <span style={{ marginLeft: '10px', color: '#666', fontSize: '0.9em' }}>
-              (ID: {board.id})
-            </span>
+          <li key={board.id} style={{ padding: '10px', margin: '10px 0', border: '1px solid #ddd', borderRadius: '4px', backgroundColor: '#f9f9f9' }}>
+            <Link to={`/boards/${board.id}`} style={{ fontWeight: 'bold', color: '#007bff', textDecoration: 'none' }}>
+              {board.name}
+            </Link>
           </li>
         ))}
       </ul>
