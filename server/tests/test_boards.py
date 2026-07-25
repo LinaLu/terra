@@ -28,7 +28,12 @@ def test_get_board_by_id(client):
 
     response = client.get(f"/api/boards/{board_id}")
     assert response.status_code == 200
-    assert response.json() == {"id": board_id, "name": "My Board"}
+    assert response.json() == {
+        "id": board_id,
+        "name": "My Board",
+        "short_code": None,
+        "link_expires_at": None,
+    }
 
 
 def test_get_board_not_found(client):

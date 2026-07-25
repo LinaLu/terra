@@ -29,6 +29,8 @@ class Board(Base):
 
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     name = Column(String, nullable=False, index=True)
+    short_code = Column(String(6), unique=True, nullable=True, index=True)
+    link_expires_at = Column(DateTime(timezone=True), nullable=True)
 
 
 # BoardColumn model

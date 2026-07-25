@@ -3,6 +3,7 @@ import { Routes, Route } from 'react-router-dom';
 import BoardForm from './components/BoardForm';
 import BoardList from './components/BoardList';
 import BoardPage from './components/BoardPage';
+import BoardView from './components/BoardView';
 import { boardApi, Board } from './services/api';
 
 function Home() {
@@ -37,6 +38,20 @@ function Home() {
     }
   };
 
+  const handleGenerateLink = async (boardId: number) => {
+    try {
+      const linkData = await boardApi.generateLink(boardId);
+      setBoards(boards.map((b) =>
+        b.id === boardId
+          ? { ...b, short_code: linkData.short_code, link_expires_at: linkData.link_expires_at }
+          : b
+      ));
+    } catch (err) {
+      console.error('Error generating link:', err);
+      setError('Failed to generate link. Please try again.');
+    }
+  };
+
   return (
     <>
       {error && (
@@ -45,7 +60,7 @@ function Home() {
         </div>
       )}
       <BoardForm onSubmit={handleCreateBoard} loading={loading} />
-      <BoardList boards={boards} />
+      <BoardList boards={boards} onGenerateLink={handleGenerateLink} />
     </>
   );
 }
@@ -59,6 +74,7 @@ function App() {
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/boards/:id" element={<BoardPage />} />
+        <Route path="/b/:code" element={<BoardView />} />
       </Routes>
     </div>
   );

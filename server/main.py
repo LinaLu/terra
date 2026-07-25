@@ -1,7 +1,7 @@
 """Main FastAPI application."""
 
 from datetime import datetime, timezone
-from typing import List
+from typing import List, Optional
 
 from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy.exc import OperationalError
@@ -10,6 +10,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from database import get_db, init_db, SessionLocal, Board, BoardColumn, Card
+from links import create_board_link
 
 app = FastAPI(title="Terra API", version="1.0.0")
 
@@ -37,9 +38,16 @@ class BoardCreate(BaseModel):
 class BoardResponse(BaseModel):
     id: int
     name: str
+    short_code: Optional[str] = None
+    link_expires_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True
+
+
+class LinkResponse(BaseModel):
+    short_code: str
+    link_expires_at: datetime
 
 
 class ColumnResponse(BaseModel):
@@ -125,6 +133,30 @@ def get_board(board_id: int, db: Session = Depends(get_db)):
     board = db.query(Board).filter(Board.id == board_id).first()
     if board is None:
         raise HTTPException(status_code=404, detail="Board not found")
+    return board
+
+
+@app.post("/api/boards/{board_id}/link", response_model=LinkResponse)
+def generate_link(board_id: int, db: Session = Depends(get_db)):
+    board = db.query(Board).filter(Board.id == board_id).first()
+    if not board:
+        raise HTTPException(status_code=404, detail="Board not found")
+    create_board_link(board, db)
+    return {"short_code": board.short_code, "link_expires_at": board.link_expires_at}
+
+
+@app.get("/b/{code}", response_model=BoardResponse)
+def get_board_by_code(code: str, db: Session = Depends(get_db)):
+    board = db.query(Board).filter(Board.short_code == code).first()
+    if not board:
+        raise HTTPException(status_code=404, detail="Link expired or not found")
+    expires = board.link_expires_at
+    if expires is None:
+        raise HTTPException(status_code=404, detail="Link expired or not found")
+    if expires.tzinfo is None:
+        expires = expires.replace(tzinfo=timezone.utc)
+    if expires <= datetime.now(timezone.utc):
+        raise HTTPException(status_code=404, detail="Link expired or not found")
     return board
 
 

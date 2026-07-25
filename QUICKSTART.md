@@ -6,19 +6,34 @@ This guide will help you get the Terra application running in under 5 minutes.
 
 Ensure you have the following installed:
 - ✅ Podman or Docker
-- ✅ Python 3.9+
-- ✅ Node.js v18+ and npm (recommend using nvm)
 
-## Start All Services
+## Start All Services with One Command
 
-### Terminal 1: Database
+From the project root directory:
+
 ```bash
-# From project root
-podman-compose up
-# OR: docker-compose up
+# Using podman-compose
+podman-compose up -d
+
+# OR using docker-compose / docker compose
+docker-compose up -d
 ```
 
-### Terminal 2: Server (Backend)
+This will automatically start:
+- 🗄️ **Database**: PostgreSQL 16 on `localhost:5432`
+- ⚙️ **Server**: FastAPI on `http://localhost:8000`
+- 🖥️ **Client**: React UI on `http://localhost:5173`
+
+## Alternative: Local Development Setup
+
+If you prefer running server and client locally for development:
+
+### 1. Database
+```bash
+podman-compose up -d postgres
+```
+
+### 2. Server (Backend)
 ```bash
 cd server
 python3 -m venv .venv
@@ -29,10 +44,9 @@ uvicorn main:app --reload
 
 Server will be at: http://localhost:8000
 
-### Terminal 3: Client (Frontend)
+### 3. Client (Frontend)
 ```bash
 cd client
-nvm use v22.22.0
 npm install
 npm run dev
 ```
