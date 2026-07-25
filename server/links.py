@@ -17,7 +17,7 @@ def generate_short_code(db: Session) -> str:
         code = "".join(random.choices(CHARS, k=CODE_LENGTH))
         if not db.query(Board).filter(Board.short_code == code).first():
             return code
-    raise RuntimeError("Failed to generate unique short code after 5 attempts")
+    raise RuntimeError(f"Failed to generate unique short code after {MAX_RETRIES} attempts")
 
 
 def create_board_link(board: Board, db: Session) -> None:
