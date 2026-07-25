@@ -34,14 +34,7 @@ The application is structured as a 3-tier architecture with a reactive frontend.
 
 ## Getting Started
 
-### 1. Start the Database
-
-Ensure Podman is running. You can check its status and start it with:
-
-```bash
-podman machine info
-podman machine start
-```
+### Quick Start (All Services with One Command)
 
 From the project root:
 
@@ -53,9 +46,22 @@ podman-compose up -d
 docker-compose up -d
 ```
 
-The PostgreSQL database will be available at `localhost:5432` with credentials defined in `.env`.
+This starts all three tiers:
+- **Database**: PostgreSQL 16 on `localhost:5432`
+- **Server**: FastAPI application on `http://localhost:8000`
+- **Client**: React application on `http://localhost:5173`
 
-### 2. Set Up and Run the Server
+### Local Development Setup
+
+If you wish to run backend or frontend locally outside of containers:
+
+#### 1. Start Database Container Only
+
+```bash
+podman-compose up -d postgres
+```
+
+#### 2. Set Up and Run the Server
 
 ```bash
 cd server
@@ -65,9 +71,7 @@ pip install -r requirements.txt
 uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-The server will be available at http://localhost:8000 with hot-reloading enabled.
-
-### 3. Set Up and Run the Client
+#### 3. Set Up and Run the Client
 
 ```bash
 cd client
@@ -75,20 +79,9 @@ npm install
 npm run dev
 ```
 
-The client will be available at http://localhost:5173 with hot-reloading (HMR) enabled.
+### Access the Application
 
-To build the client for production:
-
-```bash
-cd client
-npm run build
-```
-
-The built files will be in the `client/dist/` directory.
-
-### 4. Access the Application
-
-Open your browser and navigate to http://localhost:5173. You should see the Terra application where you can create and view boards.
+Open your browser and navigate to http://localhost:5173.
 
 ## Development
 
@@ -103,17 +96,19 @@ Both the client and server support hot-reloading:
 
 ```
 .
-├── compose.yaml          # PostgreSQL container configuration
-├── .env                  # Database credentials
+├── compose.yaml          # Podman/Docker Compose configuration (database, server, client)
 ├── client/               # React + TypeScript frontend
 │   ├── src/
 │   │   ├── components/   # React components
 │   │   ├── services/     # API layer (Axios)
 │   │   └── App.tsx       # Main application component
+│   ├── Dockerfile        # Frontend multi-stage container
+│   ├── nginx.conf        # Nginx SPA config
 │   └── package.json
 └── server/               # FastAPI backend
     ├── main.py           # FastAPI application and endpoints
     ├── database.py       # SQLAlchemy models and configuration
+    ├── Dockerfile        # Backend Python container
     └── requirements.txt
 ```
 

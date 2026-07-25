@@ -12,9 +12,33 @@ services:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U terra_user -d terra_db"]
-      interval: 10s
+      interval: 5s
       timeout: 5s
       retries: 5
+
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: terra-server
+    environment:
+      DATABASE_URL: postgresql+psycopg://terra_user:terra_password@postgres:5432/terra_db
+      LINK_EXPIRY_SECONDS: "86400"
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    container_name: terra-client
+    ports:
+      - "5173:5173"
+    depends_on:
+      - server
 
 volumes:
   postgres_data:
