@@ -1,19 +1,50 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { boardApi, Board } from '../services/api';
+import { boardApi, columnApi, cardApi, Board, Column, Card } from '../services/api';
+import ColumnComponent from './Column';
 
 export default function BoardView() {
   const { code } = useParams<{ code: string }>();
   const [board, setBoard] = useState<Board | null>(null);
+  const [columns, setColumns] = useState<Column[]>([]);
+  const [cardsByColumn, setCardsByColumn] = useState<Record<number, Card[]>>({});
+  const [loading, setLoading] = useState(true);
   const [expired, setExpired] = useState(false);
 
   useEffect(() => {
     if (!code) return;
-    boardApi
-      .getBoardByCode(code)
-      .then(setBoard)
-      .catch(() => setExpired(true));
+    const load = async () => {
+      try {
+        const boardData = await boardApi.getBoardByCode(code);
+        setBoard(boardData);
+        const [columnsData, cardsData] = await Promise.all([
+          columnApi.getColumns(boardData.id),
+          cardApi.getCards(boardData.id),
+        ]);
+        setColumns(columnsData);
+        const grouped: Record<number, Card[]> = {};
+        columnsData.forEach((col) => { grouped[col.id] = []; });
+        cardsData.forEach((card) => {
+          if (grouped[card.column_id]) {
+            grouped[card.column_id].push(card);
+          }
+        });
+        setCardsByColumn(grouped);
+      } catch {
+        setExpired(true);
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
   }, [code]);
+
+  const handleCardCreated = (card: Card) => {
+    setCardsByColumn((prev) => ({
+      ...prev,
+      [card.column_id]: [...(prev[card.column_id] ?? []), card],
+    }));
+  };
 
   if (expired) {
     return (
@@ -24,17 +55,26 @@ export default function BoardView() {
     );
   }
 
-  if (!board) {
-    return <div style={{ maxWidth: '800px', margin: '0 auto', padding: '40px', fontFamily: 'Arial, sans-serif' }}>Loading...</div>;
+  if (loading || !board) {
+    return <div style={{ padding: '20px' }}>Loading...</div>;
   }
 
   return (
-    <div style={{ maxWidth: '800px', margin: '0 auto', fontFamily: 'Arial, sans-serif' }}>
-      <header style={{ padding: '20px', backgroundColor: '#007bff', color: 'white' }}>
-        <h1 style={{ margin: 0 }}>{board.name}</h1>
-      </header>
-      <div style={{ padding: '20px', color: '#444' }}>
-        <p>You are viewing this board via a shared link.</p>
+    <div style={{ padding: '20px' }}>
+      <p style={{ color: '#666', margin: '0 0 12px 0', fontSize: '0.9rem' }}>
+        You are viewing this board via a shared link.
+      </p>
+      <h2 style={{ margin: '8px 0 20px 0' }}>{board.name}</h2>
+      <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
+        {columns.map((col) => (
+          <ColumnComponent
+            key={col.id}
+            column={col}
+            cards={cardsByColumn[col.id] ?? []}
+            boardId={board.id}
+            onCardCreated={handleCardCreated}
+          />
+        ))}
       </div>
     </div>
   );
