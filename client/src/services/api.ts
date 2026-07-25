@@ -10,8 +10,8 @@ const api = axios.create({
 export interface Board {
   id: number;
   name: string;
-  short_code?: string | null;
-  link_expires_at?: string | null;
+  short_code: string | null;
+  link_expires_at: string | null;
 }
 
 export interface LinkResponse {
