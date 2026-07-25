@@ -20,7 +20,7 @@ docker-compose up -d
 ```
 
 This will automatically start:
-- 🗄️ **Database**: PostgreSQL 16 on `http://localhost:5432`
+- 🗄️ **Database**: PostgreSQL 16 on `localhost:5432`
 - ⚙️ **Server**: FastAPI on `http://localhost:8000`
 - 🖥️ **Client**: React UI on `http://localhost:5173`
 
