@@ -10,6 +10,13 @@ const api = axios.create({
 export interface Board {
   id: number;
   name: string;
+  short_code?: string | null;
+  link_expires_at?: string | null;
+}
+
+export interface LinkResponse {
+  short_code: string;
+  link_expires_at: string;
 }
 
 export interface Column {
@@ -48,6 +55,14 @@ export const boardApi = {
   },
   getBoardById: async (id: number): Promise<Board> => {
     const response = await api.get<Board>(`/api/boards/${id}`);
+    return response.data;
+  },
+  generateLink: async (boardId: number): Promise<LinkResponse> => {
+    const response = await api.post<LinkResponse>(`/api/boards/${boardId}/link`);
+    return response.data;
+  },
+  getBoardByCode: async (code: string): Promise<Board> => {
+    const response = await api.get<Board>(`/b/${code}`);
     return response.data;
   },
 };
