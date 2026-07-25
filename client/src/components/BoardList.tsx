@@ -24,7 +24,7 @@ export default function BoardList({ boards, onGenerateLink }: BoardListProps) {
   }
 
   const handleCopy = (boardId: number, shareUrl: string) => {
-    navigator.clipboard.writeText(shareUrl);
+    navigator.clipboard.writeText(shareUrl).catch((err) => console.error('Failed to copy share URL:', err));
     setCopiedBoardId(boardId);
     setTimeout(() => setCopiedBoardId(null), 2000);
   };
