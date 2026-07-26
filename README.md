@@ -1,6 +1,6 @@
 # terra
 
-**TERRA** is a team retrospective board application.
+**TERRA** is a team retrospective board application done with agentic coding.
 
 ## Table of Contents
 
