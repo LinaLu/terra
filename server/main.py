@@ -1,9 +1,10 @@
 """Main FastAPI application."""
 
 from datetime import datetime, timezone
-from typing import List, Optional
+from typing import Dict, List, Optional
 
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, WebSocket, WebSocketDisconnect, BackgroundTasks
+from fastapi.encoders import jsonable_encoder
 from sqlalchemy.exc import OperationalError
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -27,6 +28,37 @@ _DEFAULT_COLUMNS = [
     {"name": "Bad", "position": 2},
     {"name": "Actions", "position": 3},
 ]
+
+
+# --- WebSocket Manager ---
+
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: Dict[int, List[WebSocket]] = {}
+
+    async def connect(self, board_id: int, websocket: WebSocket):
+        await websocket.accept()
+        if board_id not in self.active_connections:
+            self.active_connections[board_id] = []
+        self.active_connections[board_id].append(websocket)
+
+    def disconnect(self, board_id: int, websocket: WebSocket):
+        if board_id in self.active_connections:
+            if websocket in self.active_connections[board_id]:
+                self.active_connections[board_id].remove(websocket)
+            if not self.active_connections[board_id]:
+                del self.active_connections[board_id]
+
+    async def broadcast(self, board_id: int, message: dict):
+        if board_id in self.active_connections:
+            for connection in list(self.active_connections[board_id]):
+                try:
+                    await connection.send_json(message)
+                except Exception:
+                    pass
+
+
+manager = ConnectionManager()
 
 
 # --- Pydantic models ---
@@ -112,6 +144,20 @@ def root():
     return {"message": "Terra API"}
 
 
+@app.websocket("/ws/boards/{board_id}")
+async def websocket_endpoint(websocket: WebSocket, board_id: int):
+    await manager.connect(board_id, websocket)
+    try:
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        pass
+    except Exception:
+        pass
+    finally:
+        manager.disconnect(board_id, websocket)
+
+
 @app.get("/api/boards", response_model=List[BoardResponse])
 def get_boards(db: Session = Depends(get_db)):
     return db.query(Board).all()
@@ -187,7 +233,7 @@ def get_cards(board_id: int, db: Session = Depends(get_db)):
 
 
 @app.post("/api/boards/{board_id}/cards", response_model=CardResponse, status_code=201)
-def create_card(board_id: int, card: CardCreate, db: Session = Depends(get_db)):
+async def create_card(board_id: int, card: CardCreate, db: Session = Depends(get_db)):
     if not db.query(Board).filter(Board.id == board_id).first():
         raise HTTPException(status_code=404, detail="Board not found")
     column = (
@@ -206,11 +252,13 @@ def create_card(board_id: int, card: CardCreate, db: Session = Depends(get_db)):
     db.add(db_card)
     db.commit()
     db.refresh(db_card)
+    card_data = jsonable_encoder(CardResponse.model_validate(db_card))
+    await manager.broadcast(board_id, {"type": "card_created", "data": card_data})
     return db_card
 
 
 @app.post("/api/boards/{board_id}/cards/{card_id}/upvote", response_model=CardResponse)
-def upvote_card(board_id: int, card_id: int, db: Session = Depends(get_db)):
+async def upvote_card(board_id: int, card_id: int, db: Session = Depends(get_db)):
     if not db.query(Board).filter(Board.id == board_id).first():
         raise HTTPException(status_code=404, detail="Board not found")
     card = (
@@ -224,11 +272,13 @@ def upvote_card(board_id: int, card_id: int, db: Session = Depends(get_db)):
     card.votes = (card.votes or 0) + 1
     db.commit()
     db.refresh(card)
+    card_data = jsonable_encoder(CardResponse.model_validate(card))
+    await manager.broadcast(board_id, {"type": "card_updated", "data": card_data})
     return card
 
 
 @app.post("/api/boards/{board_id}/cards/{card_id}/downvote", response_model=CardResponse)
-def downvote_card(board_id: int, card_id: int, db: Session = Depends(get_db)):
+async def downvote_card(board_id: int, card_id: int, db: Session = Depends(get_db)):
     if not db.query(Board).filter(Board.id == board_id).first():
         raise HTTPException(status_code=404, detail="Board not found")
     card = (
@@ -242,4 +292,6 @@ def downvote_card(board_id: int, card_id: int, db: Session = Depends(get_db)):
     card.votes = max(0, (card.votes or 0) - 1)
     db.commit()
     db.refresh(card)
+    card_data = jsonable_encoder(CardResponse.model_validate(card))
+    await manager.broadcast(board_id, {"type": "card_updated", "data": card_data})
     return card

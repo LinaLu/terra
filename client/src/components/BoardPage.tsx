@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { boardApi, columnApi, cardApi, Board, Column, Card } from '../services/api';
 import ColumnComponent from './Column';
+import { useBoardWebSocket } from '../hooks/useBoardWebSocket';
 
 export default function BoardPage() {
   const { id } = useParams<{ id: string }>();
@@ -40,21 +41,39 @@ export default function BoardPage() {
     load();
   }, [boardId]);
 
-  const handleCardCreated = (card: Card) => {
-    setCardsByColumn((prev) => ({
-      ...prev,
-      [card.column_id]: [...(prev[card.column_id] ?? []), card],
-    }));
-  };
+  const handleCardCreated = useCallback((card: Card) => {
+    setCardsByColumn((prev) => {
+      const existing = prev[card.column_id] ?? [];
+      if (existing.some((c) => c.id === card.id)) {
+        return prev;
+      }
+      return {
+        ...prev,
+        [card.column_id]: [...existing, card],
+      };
+    });
+  }, []);
 
-  const handleCardUpdated = (updatedCard: Card) => {
-    setCardsByColumn((prev) => ({
-      ...prev,
-      [updatedCard.column_id]: (prev[updatedCard.column_id] ?? []).map((card) =>
-        card.id === updatedCard.id ? updatedCard : card
-      ),
-    }));
-  };
+  const handleCardUpdated = useCallback((updatedCard: Card) => {
+    setCardsByColumn((prev) => {
+      const existing = prev[updatedCard.column_id] ?? [];
+      const index = existing.findIndex((c) => c.id === updatedCard.id);
+      if (index === -1) {
+        return {
+          ...prev,
+          [updatedCard.column_id]: [...existing, updatedCard],
+        };
+      }
+      return {
+        ...prev,
+        [updatedCard.column_id]: existing.map((card) =>
+          card.id === updatedCard.id ? updatedCard : card
+        ),
+      };
+    });
+  }, []);
+
+  useBoardWebSocket(boardId, handleCardCreated, handleCardUpdated);
 
   if (loading) {
     return <div style={{ padding: '20px' }}>Loading...</div>;

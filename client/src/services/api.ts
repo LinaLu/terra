@@ -1,6 +1,16 @@
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const getApiUrl = (): string => {
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL;
+  }
+  if (typeof window !== 'undefined' && window.location) {
+    return window.location.origin;
+  }
+  return 'http://localhost:8000';
+};
+
+const API_URL = getApiUrl();
 
 const api = axios.create({
   baseURL: API_URL,
@@ -44,6 +54,13 @@ export interface CreateCardRequest {
   content: string;
   author: string;
 }
+
+export const getBoardWsUrl = (boardId: number): string => {
+  const baseUrl = getApiUrl();
+  const wsProtocol = baseUrl.startsWith('https') ? 'wss' : 'ws';
+  const host = baseUrl.replace(/^https?:\/\//, '');
+  return `${wsProtocol}://${host}/ws/boards/${boardId}`;
+};
 
 export const boardApi = {
   getBoards: async (): Promise<Board[]> => {
