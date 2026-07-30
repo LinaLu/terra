@@ -71,6 +71,7 @@ class CardResponse(BaseModel):
     column_id: int
     content: str
     author: str
+    votes: int = 0
     created_at: datetime
 
     class Config:
@@ -82,8 +83,8 @@ class CardResponse(BaseModel):
 @app.on_event("startup")
 def startup_event():
     init_db()
-    # Seed default columns for boards that pre-date this feature (i.e. have no columns yet).
     db = SessionLocal()
+    # Seed default columns for boards that pre-date this feature (i.e. have no columns yet).
     try:
         boards_without_columns = (
             db.query(Board)
@@ -206,3 +207,39 @@ def create_card(board_id: int, card: CardCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(db_card)
     return db_card
+
+
+@app.post("/api/boards/{board_id}/cards/{card_id}/upvote", response_model=CardResponse)
+def upvote_card(board_id: int, card_id: int, db: Session = Depends(get_db)):
+    if not db.query(Board).filter(Board.id == board_id).first():
+        raise HTTPException(status_code=404, detail="Board not found")
+    card = (
+        db.query(Card)
+        .join(BoardColumn, Card.column_id == BoardColumn.id)
+        .filter(Card.id == card_id, BoardColumn.board_id == board_id)
+        .first()
+    )
+    if card is None:
+        raise HTTPException(status_code=404, detail="Card not found")
+    card.votes = (card.votes or 0) + 1
+    db.commit()
+    db.refresh(card)
+    return card
+
+
+@app.post("/api/boards/{board_id}/cards/{card_id}/downvote", response_model=CardResponse)
+def downvote_card(board_id: int, card_id: int, db: Session = Depends(get_db)):
+    if not db.query(Board).filter(Board.id == board_id).first():
+        raise HTTPException(status_code=404, detail="Board not found")
+    card = (
+        db.query(Card)
+        .join(BoardColumn, Card.column_id == BoardColumn.id)
+        .filter(Card.id == card_id, BoardColumn.board_id == board_id)
+        .first()
+    )
+    if card is None:
+        raise HTTPException(status_code=404, detail="Card not found")
+    card.votes = max(0, (card.votes or 0) - 1)
+    db.commit()
+    db.refresh(card)
+    return card
