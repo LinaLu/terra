@@ -31,6 +31,7 @@ export interface Card {
   column_id: number;
   content: string;
   author: string;
+  votes: number;
   created_at: string;
 }
 
@@ -81,6 +82,14 @@ export const cardApi = {
   },
   createCard: async (boardId: number, card: CreateCardRequest): Promise<Card> => {
     const response = await api.post<Card>(`/api/boards/${boardId}/cards`, card);
+    return response.data;
+  },
+  upvoteCard: async (boardId: number, cardId: number): Promise<Card> => {
+    const response = await api.post<Card>(`/api/boards/${boardId}/cards/${cardId}/upvote`);
+    return response.data;
+  },
+  downvoteCard: async (boardId: number, cardId: number): Promise<Card> => {
+    const response = await api.post<Card>(`/api/boards/${boardId}/cards/${cardId}/downvote`);
     return response.data;
   },
 };

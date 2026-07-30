@@ -55,6 +55,7 @@ class Card(Base):
     column_id = Column(Integer, ForeignKey("columns.id"), nullable=False)
     content = Column(String, nullable=False)
     author = Column(String, nullable=False)
+    votes = Column(Integer, nullable=False, default=0)
     created_at = Column(DateTime(timezone=True), nullable=False)
 
 

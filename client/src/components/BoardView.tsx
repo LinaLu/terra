@@ -46,6 +46,15 @@ export default function BoardView() {
     }));
   };
 
+  const handleCardUpdated = (updatedCard: Card) => {
+    setCardsByColumn((prev) => ({
+      ...prev,
+      [updatedCard.column_id]: (prev[updatedCard.column_id] ?? []).map((card) =>
+        card.id === updatedCard.id ? updatedCard : card
+      ),
+    }));
+  };
+
   if (expired) {
     return (
       <div style={{ maxWidth: '800px', margin: '60px auto', padding: '40px', fontFamily: 'Arial, sans-serif', textAlign: 'center' }}>
@@ -73,6 +82,7 @@ export default function BoardView() {
             cards={cardsByColumn[col.id] ?? []}
             boardId={board.id}
             onCardCreated={handleCardCreated}
+            onCardUpdated={handleCardUpdated}
           />
         ))}
       </div>

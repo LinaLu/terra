@@ -68,3 +68,53 @@ def test_create_card_column_from_different_board_returns_404(client):
 def test_get_cards_unknown_board_returns_404(client):
     response = client.get("/api/boards/99999/cards")
     assert response.status_code == 404
+
+
+def test_upvote_card(client):
+    board_id = client.post("/api/boards", json={"name": "Retro"}).json()["id"]
+    columns = client.get(f"/api/boards/{board_id}/columns").json()
+    col_id = columns[0]["id"]
+
+    card = client.post(
+        f"/api/boards/{board_id}/cards",
+        json={"column_id": col_id, "content": "Upvote me", "author": "Alice"},
+    ).json()
+    assert card["votes"] == 0
+
+    upvoted = client.post(f"/api/boards/{board_id}/cards/{card['id']}/upvote")
+    assert upvoted.status_code == 200
+    assert upvoted.json()["votes"] == 1
+
+    upvoted_again = client.post(f"/api/boards/{board_id}/cards/{card['id']}/upvote")
+    assert upvoted_again.status_code == 200
+    assert upvoted_again.json()["votes"] == 2
+
+
+def test_downvote_card(client):
+    board_id = client.post("/api/boards", json={"name": "Retro"}).json()["id"]
+    columns = client.get(f"/api/boards/{board_id}/columns").json()
+    col_id = columns[0]["id"]
+
+    card = client.post(
+        f"/api/boards/{board_id}/cards",
+        json={"column_id": col_id, "content": "Downvote me", "author": "Bob"},
+    ).json()
+    assert card["votes"] == 0
+
+    downvoted = client.post(f"/api/boards/{board_id}/cards/{card['id']}/downvote")
+    assert downvoted.status_code == 200
+    assert downvoted.json()["votes"] == 0
+
+    upvoted = client.post(f"/api/boards/{board_id}/cards/{card['id']}/upvote")
+    assert upvoted.status_code == 200
+    assert upvoted.json()["votes"] == 1
+
+    downvoted_again = client.post(f"/api/boards/{board_id}/cards/{card['id']}/downvote")
+    assert downvoted_again.status_code == 200
+    assert downvoted_again.json()["votes"] == 0
+
+
+def test_downvote_card_not_found(client):
+    board_id = client.post("/api/boards", json={"name": "Retro"}).json()["id"]
+    response = client.post(f"/api/boards/{board_id}/cards/99999/downvote")
+    assert response.status_code == 404

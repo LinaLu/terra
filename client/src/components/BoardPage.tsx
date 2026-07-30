@@ -47,6 +47,15 @@ export default function BoardPage() {
     }));
   };
 
+  const handleCardUpdated = (updatedCard: Card) => {
+    setCardsByColumn((prev) => ({
+      ...prev,
+      [updatedCard.column_id]: (prev[updatedCard.column_id] ?? []).map((card) =>
+        card.id === updatedCard.id ? updatedCard : card
+      ),
+    }));
+  };
+
   if (loading) {
     return <div style={{ padding: '20px' }}>Loading...</div>;
   }
@@ -74,6 +83,7 @@ export default function BoardPage() {
             cards={cardsByColumn[col.id] ?? []}
             boardId={boardId}
             onCardCreated={handleCardCreated}
+            onCardUpdated={handleCardUpdated}
           />
         ))}
       </div>
