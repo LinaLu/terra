@@ -39,3 +39,8 @@ Thumbs.db
 *.db
 *.sqlite
 postgres_data/
+
+# Playwright
+playwright-report/
+test-results/
+blob-report/
