@@ -83,6 +83,13 @@ bun run dev
 
 Open your browser and navigate to http://localhost:5173.
 
+## Verify It Works
+
+1. Open http://localhost:5173 in your browser
+2. Enter a board name (e.g., "Sprint 42 Retrospective")
+3. Click "Create Board"
+4. You should see your board appear in the list below
+
 ## Development
 
 ### Hot-Reloading
@@ -127,7 +134,25 @@ When the server is running, interactive API documentation is available at:
 
 ## Testing
 
-Test instructions will be added once the test suite is in place.
+### End-to-End Tests
+
+This project uses [Playwright](https://playwright.dev/) for end-to-end testing. To run the tests, you must first have the infrastructure running. We have a Makefile set up to automate this.
+
+From the project root:
+
+```bash
+# Start services in the background and run tests
+make test-e2e
+
+# Tear down the environment when you're done
+make test-e2e-down
+```
+
+If you want to run the tests visually (UI mode):
+```bash
+cd client
+bun run test:e2e:ui
+```
 
 ## License
 
