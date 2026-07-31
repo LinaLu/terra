@@ -29,7 +29,7 @@ The application is structured as a 3-tier architecture with a reactive frontend.
 ## Prerequisites
 
 - [Podman](https://podman.io/) or Docker installed and running
-- Node.js v18+ and npm (for client development)
+- [Bun](https://bun.sh/) (for client development)
 - Python 3.9+ (for server development)
 
 ## Getting Started
@@ -75,8 +75,8 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 
 ```bash
 cd client
-npm install
-npm run dev
+bun install
+bun run dev
 ```
 
 ### Access the Application

@@ -47,8 +47,8 @@ Server will be at: http://localhost:8000
 ### 3. Client (Frontend)
 ```bash
 cd client
-npm install
-npm run dev
+bun install
+bun run dev
 ```
 
 Client will be at: http://localhost:5173
