@@ -1,7 +1,7 @@
 from database import BoardColumn
 
 
-def test_create_board_seeds_three_columns(client, db):
+def test_create_board_has_no_columns(client, db):
     response = client.post("/api/boards", json={"name": "Sprint 42"})
     assert response.status_code == 201
     board_id = response.json()["id"]
@@ -13,13 +13,7 @@ def test_create_board_seeds_three_columns(client, db):
         .all()
     )
 
-    assert len(columns) == 3
-    assert columns[0].name == "Good"
-    assert columns[0].position == 1
-    assert columns[1].name == "Bad"
-    assert columns[1].position == 2
-    assert columns[2].name == "Actions"
-    assert columns[2].position == 3
+    assert len(columns) == 0
 
 
 def test_get_board_by_id(client):
