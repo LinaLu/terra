@@ -2,6 +2,7 @@
 
 import os
 import uuid
+from datetime import datetime, timezone
 from sqlalchemy import create_engine, Column, Integer, String, ForeignKey, DateTime
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
@@ -60,6 +61,35 @@ class BoardColumn(Base):
     position = Column(Integer, nullable=False)
 
 
+# Template model
+class Template(Base):
+    """Predefined board template, defining a fixed set of columns."""
+
+    __tablename__ = "templates"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    name = Column(String, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+    columns = relationship(
+        "TemplateColumn",
+        order_by="TemplateColumn.position",
+        cascade="all, delete-orphan",
+    )
+
+
+# TemplateColumn model
+class TemplateColumn(Base):
+    """Column belonging to a template."""
+
+    __tablename__ = "template_columns"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    template_id = Column(Integer, ForeignKey("templates.id"), nullable=False)
+    name = Column(String, nullable=False)
+    position = Column(Integer, nullable=False)
+
+
 # Card model
 class Card(Base):
     """Card belonging to a column."""
@@ -91,6 +121,31 @@ def get_db():
         db.close()
 
 
+DEFAULT_TEMPLATES = [
+    ("Basic Retro", ["Went Well", "To Improve", "Action Items"]),
+    ("Start Stop Continue", ["Start", "Stop", "Continue"]),
+    ("4Ls", ["Liked", "Learned", "Lacked", "Longed For"]),
+]
+
+
+def seed_default_templates(db):
+    """Insert the default templates if the templates table is empty."""
+    if db.query(Template).first():
+        return
+    for name, columns in DEFAULT_TEMPLATES:
+        template = Template(name=name)
+        db.add(template)
+        db.flush()
+        for position, col_name in enumerate(columns, start=1):
+            db.add(TemplateColumn(template_id=template.id, name=col_name, position=position))
+    db.commit()
+
+
 def init_db():
-    """Initialize database tables."""
+    """Initialize database tables and seed default templates."""
     Base.metadata.create_all(bind=engine)
+    db = SessionLocal()
+    try:
+        seed_default_templates(db)
+    finally:
+        db.close()

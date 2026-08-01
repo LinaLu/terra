@@ -48,3 +48,6 @@ blob-report/
 # Local configuration
 .config
 .config/
+
+# Subagent-driven-development scratch workspace
+.superpowers/

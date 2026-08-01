@@ -1,8 +1,10 @@
 from database import BoardColumn
+from tests.conftest import create_template
 
 
-def test_create_board_has_no_columns(client, db):
-    response = client.post("/api/boards", json={"name": "Sprint 42"})
+def test_create_board_copies_template_columns(client, db):
+    template_id = create_template(client, columns=["Went Well", "To Improve"])
+    response = client.post("/api/boards", json={"name": "Sprint 42", "template_id": template_id})
     assert response.status_code == 201
     board_id = response.json()["id"]
 
@@ -12,12 +14,17 @@ def test_create_board_has_no_columns(client, db):
         .order_by(BoardColumn.position)
         .all()
     )
+    assert [c.name for c in columns] == ["Went Well", "To Improve"]
 
-    assert len(columns) == 0
+
+def test_create_board_missing_template_returns_404(client):
+    response = client.post("/api/boards", json={"name": "Sprint 42", "template_id": 9999})
+    assert response.status_code == 404
 
 
 def test_get_board_by_id(client):
-    post = client.post("/api/boards", json={"name": "My Board"})
+    template_id = create_template(client)
+    post = client.post("/api/boards", json={"name": "My Board", "template_id": template_id})
     board_id = post.json()["id"]
 
     response = client.get(f"/api/boards/{board_id}")

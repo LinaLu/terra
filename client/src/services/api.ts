@@ -49,6 +49,18 @@ export interface Column {
   position: number;
 }
 
+export interface TemplateColumn {
+  id: number;
+  name: string;
+  position: number;
+}
+
+export interface Template {
+  id: number;
+  name: string;
+  columns: TemplateColumn[];
+}
+
 export interface Card {
   id: number;
   column_id: number;
@@ -61,10 +73,12 @@ export interface Card {
 
 export interface CreateBoardRequest {
   name: string;
+  template_id: number;
 }
 
-export interface CreateColumnRequest {
+export interface CreateTemplateRequest {
   name: string;
+  columns: string[];
 }
 
 export interface CreateCardRequest {
@@ -154,16 +168,23 @@ export const columnApi = {
     const response = await api.get<Column[]>(`/api/boards/${boardId}/columns`);
     return response.data;
   },
-  createColumn: async (boardId: number, column: CreateColumnRequest): Promise<Column> => {
-    const response = await api.post<Column>(`/api/boards/${boardId}/columns`, column, getAuthHeaders(boardId));
+};
+
+export const templateApi = {
+  getTemplates: async (): Promise<Template[]> => {
+    const response = await api.get<Template[]>('/api/templates');
     return response.data;
   },
-  updateColumn: async (boardId: number, columnId: number, column: CreateColumnRequest): Promise<Column> => {
-    const response = await api.put<Column>(`/api/boards/${boardId}/columns/${columnId}`, column, getAuthHeaders(boardId));
+  createTemplate: async (template: CreateTemplateRequest): Promise<Template> => {
+    const response = await api.post<Template>('/api/templates', template);
     return response.data;
   },
-  deleteColumn: async (boardId: number, columnId: number): Promise<void> => {
-    await api.delete(`/api/boards/${boardId}/columns/${columnId}`, getAuthHeaders(boardId));
+  updateTemplate: async (templateId: number, template: CreateTemplateRequest): Promise<Template> => {
+    const response = await api.put<Template>(`/api/templates/${templateId}`, template);
+    return response.data;
+  },
+  deleteTemplate: async (templateId: number): Promise<void> => {
+    await api.delete(`/api/templates/${templateId}`);
   },
 };
 

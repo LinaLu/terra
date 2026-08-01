@@ -4,6 +4,7 @@ import BoardForm from './components/BoardForm';
 import BoardList from './components/BoardList';
 import BoardPage from './components/BoardPage';
 import BoardView from './components/BoardView';
+import Templates from './pages/Templates';
 import { boardApi, Board } from './services/api';
 
 function Home() {
@@ -24,11 +25,11 @@ function Home() {
     }
   };
 
-  const handleCreateBoard = async (name: string) => {
+  const handleCreateBoard = async (name: string, templateId: number) => {
     try {
       setLoading(true);
       setError(null);
-      const newBoard = await boardApi.createBoard({ name });
+      const newBoard = await boardApi.createBoard({ name, template_id: templateId });
       setBoards([...boards, newBoard]);
     } catch (err) {
       console.error('Error creating board:', err);
@@ -75,6 +76,7 @@ function App() {
         <Route path="/" element={<Home />} />
         <Route path="/boards/:id" element={<BoardPage />} />
         <Route path="/b/:code" element={<BoardView />} />
+        <Route path="/templates" element={<Templates />} />
       </Routes>
     </div>
   );

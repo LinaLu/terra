@@ -13,7 +13,7 @@ from pydantic import BaseModel
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from database import Base, engine, get_db, init_db, Board, BoardColumn, Card, User
+from database import Base, engine, get_db, init_db, Board, BoardColumn, Card, User, Template, TemplateColumn
 from links import create_board_link, is_link_active
 
 app = FastAPI(title="Terra API", version="1.0.0")
@@ -91,6 +91,7 @@ class JoinResponse(BaseModel):
 
 class BoardCreate(BaseModel):
     name: str
+    template_id: int
 
 
 class BoardResponse(BaseModel):
@@ -109,15 +110,34 @@ class LinkResponse(BaseModel):
     link_expires_at: datetime
 
 
-class ColumnCreate(BaseModel):
-    name: str
-
-
 class ColumnResponse(BaseModel):
     id: int
     board_id: int
     name: str
     position: int
+
+    class Config:
+        from_attributes = True
+
+
+class TemplateCreate(BaseModel):
+    name: str
+    columns: List[str]
+
+
+class TemplateColumnResponse(BaseModel):
+    id: int
+    name: str
+    position: int
+
+    class Config:
+        from_attributes = True
+
+
+class TemplateResponse(BaseModel):
+    id: int
+    name: str
+    columns: List[TemplateColumnResponse]
 
     class Config:
         from_attributes = True
@@ -189,8 +209,15 @@ def get_boards(db: Session = Depends(get_db)):
 
 @app.post("/api/boards", response_model=BoardResponse, status_code=201)
 def create_board(board: BoardCreate, db: Session = Depends(get_db)):
+    template = db.query(Template).filter(Template.id == board.template_id).first()
+    if not template:
+        raise HTTPException(status_code=404, detail="Template not found")
+
     db_board = Board(name=board.name)
     db.add(db_board)
+    db.flush()
+    for template_column in template.columns:
+        db.add(BoardColumn(board_id=db_board.id, name=template_column.name, position=template_column.position))
     db.commit()
     db.refresh(db_board)
     return db_board
@@ -280,60 +307,58 @@ def get_columns(board_id: int, db: Session = Depends(get_db)):
     )
 
 
-@app.post("/api/boards/{board_id}/columns", response_model=ColumnResponse, status_code=201)
-async def create_column(board_id: int, column: ColumnCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Only the admin can create columns")
-    if not db.query(Board).filter(Board.id == board_id).first():
-        raise HTTPException(status_code=404, detail="Board not found")
-    
-    max_pos = db.query(func.max(BoardColumn.position)).filter(BoardColumn.board_id == board_id).scalar()
-    new_pos = (max_pos or 0) + 1
-    
-    db_column = BoardColumn(board_id=board_id, name=column.name, position=new_pos)
-    db.add(db_column)
+def _validate_template_input(payload: TemplateCreate) -> tuple[str, List[str]]:
+    name = payload.name.strip()
+    columns = [c.strip() for c in payload.columns if c.strip()]
+    if not name:
+        raise HTTPException(status_code=422, detail="Template name is required")
+    if not columns:
+        raise HTTPException(status_code=422, detail="At least one column is required")
+    return name, columns
+
+
+@app.get("/api/templates", response_model=List[TemplateResponse])
+def get_templates(db: Session = Depends(get_db)):
+    return db.query(Template).all()
+
+
+@app.post("/api/templates", response_model=TemplateResponse, status_code=201)
+def create_template(payload: TemplateCreate, db: Session = Depends(get_db)):
+    name, columns = _validate_template_input(payload)
+    db_template = Template(name=name)
+    db.add(db_template)
+    db.flush()
+    for position, col_name in enumerate(columns, start=1):
+        db.add(TemplateColumn(template_id=db_template.id, name=col_name, position=position))
     db.commit()
-    db.refresh(db_column)
-    
-    col_data = jsonable_encoder(ColumnResponse.model_validate(db_column))
-    await manager.broadcast(board_id, {"type": "column_created", "data": col_data})
-    return db_column
+    db.refresh(db_template)
+    return db_template
 
 
-@app.put("/api/boards/{board_id}/columns/{column_id}", response_model=ColumnResponse)
-async def update_column(board_id: int, column_id: int, column_update: ColumnCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Only the admin can update columns")
-        
-    db_column = db.query(BoardColumn).filter(BoardColumn.id == column_id, BoardColumn.board_id == board_id).first()
-    if not db_column:
-        raise HTTPException(status_code=404, detail="Column not found")
-        
-    db_column.name = column_update.name
+@app.put("/api/templates/{template_id}", response_model=TemplateResponse)
+def update_template(template_id: int, payload: TemplateCreate, db: Session = Depends(get_db)):
+    name, columns = _validate_template_input(payload)
+    db_template = db.query(Template).filter(Template.id == template_id).first()
+    if not db_template:
+        raise HTTPException(status_code=404, detail="Template not found")
+
+    db_template.name = name
+    db.query(TemplateColumn).filter(TemplateColumn.template_id == template_id).delete()
+    db.flush()
+    for position, col_name in enumerate(columns, start=1):
+        db.add(TemplateColumn(template_id=template_id, name=col_name, position=position))
     db.commit()
-    db.refresh(db_column)
-    
-    col_data = jsonable_encoder(ColumnResponse.model_validate(db_column))
-    await manager.broadcast(board_id, {"type": "column_updated", "data": col_data})
-    return db_column
+    db.refresh(db_template)
+    return db_template
 
 
-@app.delete("/api/boards/{board_id}/columns/{column_id}", status_code=204)
-async def delete_column(board_id: int, column_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Only the admin can delete columns")
-        
-    db_column = db.query(BoardColumn).filter(BoardColumn.id == column_id, BoardColumn.board_id == board_id).first()
-    if not db_column:
-        raise HTTPException(status_code=404, detail="Column not found")
-        
-    # Delete associated cards
-    db.query(Card).filter(Card.column_id == column_id).delete()
-    
-    db.delete(db_column)
+@app.delete("/api/templates/{template_id}", status_code=204)
+def delete_template(template_id: int, db: Session = Depends(get_db)):
+    db_template = db.query(Template).filter(Template.id == template_id).first()
+    if not db_template:
+        raise HTTPException(status_code=404, detail="Template not found")
+    db.delete(db_template)
     db.commit()
-    
-    await manager.broadcast(board_id, {"type": "column_deleted", "data": {"id": column_id}})
     return None
 
 
