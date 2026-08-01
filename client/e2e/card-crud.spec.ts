@@ -21,7 +21,7 @@ test('card CRUD operations: create, update, delete', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Good' })).toBeVisible();
 
   // 3. Create a new card in the first column
-  const firstColumn = page.locator('div[style*="flex: 1"]').filter({ hasText: 'Good' }).first();
+  const firstColumn = page.locator('div', { has: page.locator('h3', { hasText: 'Good' }) }).first();
   await firstColumn.getByRole('button', { name: '+ Add a card' }).click();
   await firstColumn.locator('textarea[placeholder="What\'s on your mind?"]').fill('Test card content');
   await firstColumn.locator('input[placeholder="Your name"]').fill('Test Author');
