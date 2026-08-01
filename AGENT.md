@@ -21,5 +21,5 @@ The application is structured as a frontend/backend split with a relational data
 
 ## GitHub Operations
 
-- All `gh` operations MUST be prefixed with `GH_CONFIG_DIR=.config/gh_auth` (e.g. `GH_CONFIG_DIR=.config/gh_auth gh pr create`).
+- All `gh` operations MUST be prefixed with `GH_CONFIG_DIR=../.config/gh_auth` and with parameter `--repo LinaLu/terra` (e.g. `GH_CONFIG_DIR=../.config/gh_auth gh pr create --repo LinaLu/terra`).
 - Pull Requests should be created using `gh` with a lean, concise description.
