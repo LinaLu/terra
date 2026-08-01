@@ -59,6 +59,10 @@ export interface CreateCardRequest {
   author: string;
 }
 
+export interface UpdateCardRequest {
+  content: string;
+}
+
 export const getBoardWsUrl = (boardId: number): string => {
   const baseUrl = getApiUrl();
   const wsProtocol = baseUrl.startsWith('https') ? 'wss' : 'ws';
@@ -108,6 +112,13 @@ export const cardApi = {
   createCard: async (boardId: number, card: CreateCardRequest): Promise<Card> => {
     const response = await api.post<Card>(`/api/boards/${boardId}/cards`, card);
     return response.data;
+  },
+  updateCard: async (boardId: number, cardId: number, cardUpdate: UpdateCardRequest): Promise<Card> => {
+    const response = await api.put<Card>(`/api/boards/${boardId}/cards/${cardId}`, cardUpdate);
+    return response.data;
+  },
+  deleteCard: async (boardId: number, cardId: number): Promise<void> => {
+    await api.delete(`/api/boards/${boardId}/cards/${cardId}`);
   },
   upvoteCard: async (boardId: number, cardId: number): Promise<Card> => {
     const response = await api.post<Card>(`/api/boards/${boardId}/cards/${cardId}/upvote`);

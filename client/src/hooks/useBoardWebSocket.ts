@@ -3,23 +3,27 @@ import { Card, Column, getBoardWsUrl } from '../services/api';
 
 type WebSocketMessage =
   | { type: 'card_created' | 'card_updated'; data: Card }
-  | { type: 'column_created'; data: Column };
+  | { type: 'column_created'; data: Column }
+  | { type: 'card_deleted'; data: { id: number; column_id: number } };
 
 export function useBoardWebSocket(
   boardId: number | null | undefined,
   onCardCreated: (card: Card) => void,
   onCardUpdated: (card: Card) => void,
-  onColumnCreated: (column: Column) => void
+  onColumnCreated: (column: Column) => void,
+  onCardDeleted?: (cardId: number, columnId: number) => void
 ) {
   const onCardCreatedRef = useRef(onCardCreated);
   const onCardUpdatedRef = useRef(onCardUpdated);
   const onColumnCreatedRef = useRef(onColumnCreated);
+  const onCardDeletedRef = useRef(onCardDeleted);
 
   useEffect(() => {
     onCardCreatedRef.current = onCardCreated;
     onCardUpdatedRef.current = onCardUpdated;
     onColumnCreatedRef.current = onColumnCreated;
-  }, [onCardCreated, onCardUpdated, onColumnCreated]);
+    onCardDeletedRef.current = onCardDeleted;
+  }, [onCardCreated, onCardUpdated, onColumnCreated, onCardDeleted]);
 
   useEffect(() => {
     if (!boardId) return;
@@ -41,6 +45,10 @@ export function useBoardWebSocket(
             onCardUpdatedRef.current(payload.data);
           } else if (payload.type === 'column_created') {
             onColumnCreatedRef.current(payload.data);
+          } else if (payload.type === 'card_deleted') {
+            if (onCardDeletedRef.current) {
+              onCardDeletedRef.current(payload.data.id, payload.data.column_id);
+            }
           }
         } catch (err) {
           console.error('Error parsing WebSocket message:', err);
