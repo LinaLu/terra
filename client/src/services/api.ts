@@ -49,6 +49,10 @@ export interface CreateBoardRequest {
   name: string;
 }
 
+export interface CreateColumnRequest {
+  name: string;
+}
+
 export interface CreateCardRequest {
   column_id: number;
   content: string;
@@ -88,6 +92,10 @@ export const boardApi = {
 export const columnApi = {
   getColumns: async (boardId: number): Promise<Column[]> => {
     const response = await api.get<Column[]>(`/api/boards/${boardId}/columns`);
+    return response.data;
+  },
+  createColumn: async (boardId: number, column: CreateColumnRequest): Promise<Column> => {
+    const response = await api.post<Column>(`/api/boards/${boardId}/columns`, column);
     return response.data;
   },
 };

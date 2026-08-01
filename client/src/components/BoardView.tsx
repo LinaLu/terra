@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { boardApi, columnApi, cardApi, Board, Column, Card } from '../services/api';
 import ColumnComponent from './Column';
+import ColumnForm from './ColumnForm';
 import { useBoardWebSocket } from '../hooks/useBoardWebSocket';
 
 export default function BoardView() {
@@ -40,6 +41,13 @@ export default function BoardView() {
     load();
   }, [code]);
 
+  const handleColumnCreated = useCallback((column: Column) => {
+    setColumns((prev) => {
+      if (prev.some((c) => c.id === column.id)) return prev;
+      return [...prev, column].sort((a, b) => a.position - b.position);
+    });
+  }, []);
+
   const handleCardCreated = useCallback((card: Card) => {
     setCardsByColumn((prev) => {
       const existing = prev[card.column_id] ?? [];
@@ -72,7 +80,7 @@ export default function BoardView() {
     });
   }, []);
 
-  useBoardWebSocket(board?.id, handleCardCreated, handleCardUpdated);
+  useBoardWebSocket(board?.id, handleCardCreated, handleCardUpdated, handleColumnCreated);
 
   if (expired) {
     return (
@@ -93,7 +101,7 @@ export default function BoardView() {
         You are viewing this board via a shared link.
       </p>
       <h2 style={{ margin: '8px 0 20px 0' }}>{board.name}</h2>
-      <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
+      <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start', overflowX: 'auto', paddingBottom: '16px' }}>
         {columns.map((col) => (
           <ColumnComponent
             key={col.id}
@@ -104,6 +112,7 @@ export default function BoardView() {
             onCardUpdated={handleCardUpdated}
           />
         ))}
+        <ColumnForm boardId={board.id} onColumnCreated={handleColumnCreated} />
       </div>
     </div>
   );
