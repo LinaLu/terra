@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Droppable, Draggable } from '@hello-pangea/dnd';
 import { Column as ColumnType, Card, cardApi } from '../services/api';
 import CardForm from './CardForm';
+import { COLUMN_ICONS } from './icons';
 
 interface ColumnProps {
   column: ColumnType;
@@ -83,18 +84,21 @@ export default function Column({ column, cards, boardId, onCardCreated, onCardUp
     }
   };
 
+  const ColumnIcon = column.icon ? COLUMN_ICONS[column.icon] : null;
+
   return (
-    <div className="flex-1 min-w-[240px] flex flex-col border border-gray-300 rounded p-3 bg-gray-50">
-      <div className="flex justify-between items-center mb-3 border-b-2 border-blue-600 pb-1.5">
-        <h3 className="m-0 text-base font-bold">
+    <div className="flex-1 min-w-[260px] flex flex-col rounded-xl p-3">
+      <div className="flex items-center gap-2 mb-3">
+        {ColumnIcon && <ColumnIcon size={22} strokeWidth={2} style={{ color: column.color ?? undefined }} />}
+        <h3 className="m-0 text-base font-semibold text-gray-900">
           {column.name}
         </h3>
       </div>
       <Droppable droppableId={String(column.id)}>
         {(provided) => (
-          <div 
+          <div
             className="flex-1 min-h-[50px]"
-            ref={provided.innerRef} 
+            ref={provided.innerRef}
             {...provided.droppableProps}
           >
             {cards.map((card, index) => (
@@ -104,9 +108,13 @@ export default function Column({ column, cards, boardId, onCardCreated, onCardUp
                     ref={provided.innerRef}
                     {...provided.draggableProps}
                     {...provided.dragHandleProps}
-                    className={`p-2 mb-2 bg-white border border-gray-300 rounded ${
+                    className={`p-3 mb-2 rounded-xl shadow-sm ${column.color ? '' : 'bg-white border border-gray-200'} ${
                       snapshot.isDragging ? 'shadow-lg ring-2 ring-blue-500' : ''
                     }`}
+                    style={{
+                      ...provided.draggableProps.style,
+                      ...(column.color ? { backgroundColor: column.color } : {}),
+                    }}
                   >
                     {editingCardId === card.id ? (
                       <div className="mb-2">
@@ -159,7 +167,7 @@ export default function Column({ column, cards, boardId, onCardCreated, onCardUp
                           </button>
                         </div>
                       </div>
-                      <div className="inline-flex items-center gap-1 bg-slate-50 border border-slate-300 rounded-full px-2 py-0.5">
+                      <div className="inline-flex items-center gap-1 bg-white/70 border border-black/10 rounded-full px-2 py-0.5">
                         <button
                           onClick={() => handleUpvote(card.id)}
                           disabled={votingId === card.id}

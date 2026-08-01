@@ -46,12 +46,16 @@ export interface Column {
   id: number;
   board_id: number;
   name: string;
+  color: string | null;
+  icon: string | null;
   position: number;
 }
 
 export interface TemplateColumn {
   id: number;
   name: string;
+  color: string | null;
+  icon: string | null;
   position: number;
 }
 
@@ -76,9 +80,15 @@ export interface CreateBoardRequest {
   template_id: number;
 }
 
+export interface CreateTemplateColumnRequest {
+  name: string;
+  color?: string | null;
+  icon?: string | null;
+}
+
 export interface CreateTemplateRequest {
   name: string;
-  columns: string[];
+  columns: CreateTemplateColumnRequest[];
 }
 
 export interface CreateCardRequest {

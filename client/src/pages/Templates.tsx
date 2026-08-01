@@ -1,13 +1,21 @@
 import { useState, useEffect, FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { templateApi, Template } from '../services/api';
+import { COLUMN_ICONS, COLUMN_ICON_OPTIONS } from '../components/icons';
+
+interface TemplateColumnFormState {
+  name: string;
+  color: string | null;
+  icon: string | null;
+}
 
 interface TemplateFormState {
   name: string;
-  columns: string[];
+  columns: TemplateColumnFormState[];
 }
 
-const emptyForm: TemplateFormState = { name: '', columns: [''] };
+const emptyColumn: TemplateColumnFormState = { name: '', color: null, icon: null };
+const emptyForm: TemplateFormState = { name: '', columns: [{ ...emptyColumn }] };
 
 export default function Templates() {
   const [templates, setTemplates] = useState<Template[]>([]);
@@ -40,7 +48,10 @@ export default function Templates() {
   };
 
   const startEdit = (template: Template) => {
-    setForm({ name: template.name, columns: template.columns.map((c) => c.name) });
+    setForm({
+      name: template.name,
+      columns: template.columns.map((c) => ({ name: c.name, color: c.color, icon: c.icon })),
+    });
     setEditingId(template.id);
   };
 
@@ -49,12 +60,19 @@ export default function Templates() {
     setForm(emptyForm);
   };
 
-  const handleColumnChange = (index: number, value: string) => {
-    setForm((f) => ({ ...f, columns: f.columns.map((c, i) => (i === index ? value : c)) }));
+  const handleColumnChange = <K extends keyof TemplateColumnFormState>(
+    index: number,
+    field: K,
+    value: TemplateColumnFormState[K],
+  ) => {
+    setForm((f) => ({
+      ...f,
+      columns: f.columns.map((c, i) => (i === index ? { ...c, [field]: value } : c)),
+    }));
   };
 
   const addColumnRow = () => {
-    setForm((f) => ({ ...f, columns: [...f.columns, ''] }));
+    setForm((f) => ({ ...f, columns: [...f.columns, { ...emptyColumn }] }));
   };
 
   const removeColumnRow = (index: number) => {
@@ -123,7 +141,23 @@ export default function Templates() {
           >
             <div>
               <strong>{template.name}</strong>
-              <div className="text-sm text-gray-600">{template.columns.map((c) => c.name).join(', ')}</div>
+              <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1 text-sm text-gray-600">
+                {template.columns.map((c) => {
+                  const Icon = c.icon ? COLUMN_ICONS[c.icon] : null;
+                  return (
+                    <span key={c.id} className="inline-flex items-center gap-1">
+                      {c.color && (
+                        <span
+                          className="inline-block w-2.5 h-2.5 rounded-full"
+                          style={{ backgroundColor: c.color }}
+                        />
+                      )}
+                      {Icon && <Icon size={14} style={{ color: c.color ?? undefined }} />}
+                      {c.name}
+                    </span>
+                  );
+                })}
+              </div>
             </div>
             <div className="flex gap-2">
               <button
@@ -163,9 +197,27 @@ export default function Templates() {
           {form.columns.map((col, index) => (
             <div key={index} className="flex gap-1.5 items-center">
               <input
+                type="color"
+                value={col.color ?? '#e5e7eb'}
+                onChange={(e) => handleColumnChange(index, 'color', e.target.value)}
+                title="Column color"
+                className="w-7 h-7 p-0 border border-gray-300 rounded cursor-pointer shrink-0"
+              />
+              <select
+                value={col.icon ?? ''}
+                onChange={(e) => handleColumnChange(index, 'icon', e.target.value || null)}
+                title="Column icon"
+                className="p-1.5 text-sm border border-gray-300 rounded shrink-0"
+              >
+                <option value="">No icon</option>
+                {COLUMN_ICON_OPTIONS.map((name) => (
+                  <option key={name} value={name}>{name}</option>
+                ))}
+              </select>
+              <input
                 type="text"
-                value={col}
-                onChange={(e) => handleColumnChange(index, e.target.value)}
+                value={col.name}
+                onChange={(e) => handleColumnChange(index, 'name', e.target.value)}
                 placeholder={`Column ${index + 1} name`}
                 className="flex-1 p-1.5 text-sm border border-gray-300 rounded"
               />
@@ -184,7 +236,7 @@ export default function Templates() {
           <div className="flex gap-2 mt-2">
             <button
               type="submit"
-              disabled={submitting || !form.name.trim() || !form.columns.some((c) => c.trim())}
+              disabled={submitting || !form.name.trim() || !form.columns.some((c) => c.name.trim())}
               className="flex-1 p-2 text-white border-none rounded cursor-pointer bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
               {submitting ? 'Saving...' : 'Save'}

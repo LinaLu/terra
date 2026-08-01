@@ -15,10 +15,10 @@ help:
 	@echo "  test-e2e-down  - Shut down containers after e2e tests"
 
 up:
-	podman-compose up -d
+	podman-compose up -d --build
 
 down:
-	podman-compose down
+	podman-compose --podman-rm-args="--force" down
 
 logs:
 	podman-compose logs -f
@@ -32,8 +32,8 @@ test-frontend:
 	cd client && bun run test --run
 
 test-e2e:
-	podman-compose up -d
+	podman-compose up -d --build
 	cd client && bun run test:e2e
 
 test-e2e-down:
-	podman-compose down
+	podman-compose --podman-rm-args="--force" down

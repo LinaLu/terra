@@ -58,7 +58,7 @@ def client():
 
 def create_template(client, name="Test Template", columns=("Good",)):
     """Create a template via the API and return its id."""
-    response = client.post("/api/templates", json={"name": name, "columns": list(columns)})
+    response = client.post("/api/templates", json={"name": name, "columns": [{"name": c} for c in columns]})
     return response.json()["id"]
 
 

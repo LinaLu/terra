@@ -242,7 +242,7 @@ export default function BoardView() {
       <h2 className="my-2 mb-5 text-2xl font-bold">{board.name}</h2>
       
       <DragDropContext onDragEnd={onDragEnd}>
-        <div className="flex gap-4 items-start overflow-x-auto pb-4">
+        <div className="flex gap-6 items-start overflow-x-auto pb-4">
           {columns.map((col) => (
             <ColumnComponent
               key={col.id}

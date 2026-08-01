@@ -58,6 +58,8 @@ class BoardColumn(Base):
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     board_id = Column(Integer, ForeignKey("boards.id"), nullable=False)
     name = Column(String, nullable=False)
+    color = Column(String, nullable=True)
+    icon = Column(String, nullable=True)
     position = Column(Integer, nullable=False)
 
 
@@ -87,6 +89,8 @@ class TemplateColumn(Base):
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     template_id = Column(Integer, ForeignKey("templates.id"), nullable=False)
     name = Column(String, nullable=False)
+    color = Column(String, nullable=True)
+    icon = Column(String, nullable=True)
     position = Column(Integer, nullable=False)
 
 
@@ -122,9 +126,31 @@ def get_db():
 
 
 DEFAULT_TEMPLATES = [
-    ("Basic Retro", ["Went Well", "To Improve", "Action Items"]),
-    ("Start Stop Continue", ["Start", "Stop", "Continue"]),
-    ("4Ls", ["Liked", "Learned", "Lacked", "Longed For"]),
+    (
+        "Basic Retro",
+        [
+            {"name": "Went Well", "color": "#86efac", "icon": "smile"},
+            {"name": "To Improve", "color": "#fca5a5", "icon": "frown"},
+            {"name": "Action Items", "color": "#93c5fd", "icon": "lightbulb"},
+        ],
+    ),
+    (
+        "Start Stop Continue",
+        [
+            {"name": "Start", "color": "#86efac", "icon": "play"},
+            {"name": "Stop", "color": "#fca5a5", "icon": "octagon-x"},
+            {"name": "Continue", "color": "#93c5fd", "icon": "repeat"},
+        ],
+    ),
+    (
+        "4Ls",
+        [
+            {"name": "Liked", "color": "#86efac", "icon": "thumbs-up"},
+            {"name": "Learned", "color": "#93c5fd", "icon": "lightbulb"},
+            {"name": "Lacked", "color": "#fdba74", "icon": "alert-triangle"},
+            {"name": "Longed For", "color": "#d8b4fe", "icon": "star"},
+        ],
+    ),
 ]
 
 
@@ -136,8 +162,14 @@ def seed_default_templates(db):
         template = Template(name=name)
         db.add(template)
         db.flush()
-        for position, col_name in enumerate(columns, start=1):
-            db.add(TemplateColumn(template_id=template.id, name=col_name, position=position))
+        for position, col in enumerate(columns, start=1):
+            db.add(TemplateColumn(
+                template_id=template.id,
+                name=col["name"],
+                color=col.get("color"),
+                icon=col.get("icon"),
+                position=position,
+            ))
     db.commit()
 
 

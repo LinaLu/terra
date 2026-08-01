@@ -114,20 +114,30 @@ class ColumnResponse(BaseModel):
     id: int
     board_id: int
     name: str
+    color: Optional[str] = None
+    icon: Optional[str] = None
     position: int
 
     class Config:
         from_attributes = True
 
 
+class TemplateColumnInput(BaseModel):
+    name: str
+    color: Optional[str] = None
+    icon: Optional[str] = None
+
+
 class TemplateCreate(BaseModel):
     name: str
-    columns: List[str]
+    columns: List[TemplateColumnInput]
 
 
 class TemplateColumnResponse(BaseModel):
     id: int
     name: str
+    color: Optional[str] = None
+    icon: Optional[str] = None
     position: int
 
     class Config:
@@ -217,7 +227,13 @@ def create_board(board: BoardCreate, db: Session = Depends(get_db)):
     db.add(db_board)
     db.flush()
     for template_column in template.columns:
-        db.add(BoardColumn(board_id=db_board.id, name=template_column.name, position=template_column.position))
+        db.add(BoardColumn(
+            board_id=db_board.id,
+            name=template_column.name,
+            color=template_column.color,
+            icon=template_column.icon,
+            position=template_column.position,
+        ))
     db.commit()
     db.refresh(db_board)
     return db_board
@@ -307,9 +323,13 @@ def get_columns(board_id: int, db: Session = Depends(get_db)):
     )
 
 
-def _validate_template_input(payload: TemplateCreate) -> tuple[str, List[str]]:
+def _validate_template_input(payload: TemplateCreate) -> tuple[str, List[TemplateColumnInput]]:
     name = payload.name.strip()
-    columns = [c.strip() for c in payload.columns if c.strip()]
+    columns = [
+        TemplateColumnInput(name=c.name.strip(), color=c.color, icon=c.icon)
+        for c in payload.columns
+        if c.name.strip()
+    ]
     if not name:
         raise HTTPException(status_code=422, detail="Template name is required")
     if not columns:
@@ -328,8 +348,8 @@ def create_template(payload: TemplateCreate, db: Session = Depends(get_db)):
     db_template = Template(name=name)
     db.add(db_template)
     db.flush()
-    for position, col_name in enumerate(columns, start=1):
-        db.add(TemplateColumn(template_id=db_template.id, name=col_name, position=position))
+    for position, col in enumerate(columns, start=1):
+        db.add(TemplateColumn(template_id=db_template.id, name=col.name, color=col.color, icon=col.icon, position=position))
     db.commit()
     db.refresh(db_template)
     return db_template
@@ -345,8 +365,8 @@ def update_template(template_id: int, payload: TemplateCreate, db: Session = Dep
     db_template.name = name
     db.query(TemplateColumn).filter(TemplateColumn.template_id == template_id).delete()
     db.flush()
-    for position, col_name in enumerate(columns, start=1):
-        db.add(TemplateColumn(template_id=template_id, name=col_name, position=position))
+    for position, col in enumerate(columns, start=1):
+        db.add(TemplateColumn(template_id=template_id, name=col.name, color=col.color, icon=col.icon, position=position))
     db.commit()
     db.refresh(db_template)
     return db_template

@@ -1,6 +1,7 @@
 import { useState, useEffect, FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { templateApi, Template } from '../services/api';
+import { COLUMN_ICONS } from './icons';
 
 interface BoardFormProps {
   onSubmit: (name: string, templateId: number) => void;
@@ -77,8 +78,22 @@ export default function BoardForm({ onSubmit, loading }: BoardFormProps) {
                 className="mr-2"
               />
               <strong>{template.name}</strong>
-              <div className="text-sm text-gray-600">
-                {template.columns.map((c) => c.name).join(', ')}
+              <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1 text-sm text-gray-600">
+                {template.columns.map((c) => {
+                  const Icon = c.icon ? COLUMN_ICONS[c.icon] : null;
+                  return (
+                    <span key={c.id} className="inline-flex items-center gap-1">
+                      {c.color && (
+                        <span
+                          className="inline-block w-2.5 h-2.5 rounded-full"
+                          style={{ backgroundColor: c.color }}
+                        />
+                      )}
+                      {Icon && <Icon size={14} style={{ color: c.color ?? undefined }} />}
+                      {c.name}
+                    </span>
+                  );
+                })}
               </div>
             </label>
           ))}

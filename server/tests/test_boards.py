@@ -17,6 +17,18 @@ def test_create_board_copies_template_columns(client, db):
     assert [c.name for c in columns] == ["Went Well", "To Improve"]
 
 
+def test_create_board_copies_template_column_color_and_icon(client):
+    template = client.post(
+        "/api/templates",
+        json={"name": "Basic Retro", "columns": [{"name": "Went Well", "color": "#86efac", "icon": "smile"}]},
+    ).json()
+    board_id = client.post("/api/boards", json={"name": "Sprint 42", "template_id": template["id"]}).json()["id"]
+
+    columns = client.get(f"/api/boards/{board_id}/columns").json()
+    assert columns[0]["color"] == "#86efac"
+    assert columns[0]["icon"] == "smile"
+
+
 def test_create_board_missing_template_returns_404(client):
     response = client.post("/api/boards", json={"name": "Sprint 42", "template_id": 9999})
     assert response.status_code == 404
