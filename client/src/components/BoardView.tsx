@@ -1,14 +1,17 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { DragDropContext, DropResult } from '@hello-pangea/dnd';
-import { boardApi, columnApi, cardApi, Board, Column, Card } from '../services/api';
+import { boardApi, columnApi, cardApi, Board, Column, Card, User, getBoardToken } from '../services/api';
 import ColumnComponent from './Column';
 import ColumnForm from './ColumnForm';
+import JoinBoardModal from './JoinBoardModal';
 import { useBoardWebSocket } from '../hooks/useBoardWebSocket';
 
 export default function BoardView() {
   const { code } = useParams<{ code: string }>();
   const [board, setBoard] = useState<Board | null>(null);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [needsJoin, setNeedsJoin] = useState(false);
   const [columns, setColumns] = useState<Column[]>([]);
   const [cardsByColumn, setCardsByColumn] = useState<Record<number, Card[]>>({});
   const [loading, setLoading] = useState(true);
@@ -20,6 +23,20 @@ export default function BoardView() {
       try {
         const boardData = await boardApi.getBoardByCode(code);
         setBoard(boardData);
+
+        const token = getBoardToken(boardData.id);
+        if (token) {
+          try {
+            const user = await boardApi.getMe(boardData.id);
+            setCurrentUser(user);
+            setNeedsJoin(false);
+          } catch {
+            setNeedsJoin(true);
+          }
+        } else {
+          setNeedsJoin(true);
+        }
+
         const [columnsData, cardsData] = await Promise.all([
           columnApi.getColumns(boardData.id),
           cardApi.getCards(boardData.id),
@@ -46,6 +63,21 @@ export default function BoardView() {
     setColumns((prev) => {
       if (prev.some((c) => c.id === column.id)) return prev;
       return [...prev, column].sort((a, b) => a.position - b.position);
+    });
+  }, []);
+
+  const handleColumnUpdated = useCallback((updatedColumn: Column) => {
+    setColumns((prev) =>
+      prev.map((c) => (c.id === updatedColumn.id ? updatedColumn : c))
+    );
+  }, []);
+
+  const handleColumnDeleted = useCallback((columnId: number) => {
+    setColumns((prev) => prev.filter((c) => c.id !== columnId));
+    setCardsByColumn((prev) => {
+      const next = { ...prev };
+      delete next[columnId];
+      return next;
     });
   }, []);
 
@@ -125,7 +157,16 @@ export default function BoardView() {
     });
   }, []);
 
-  useBoardWebSocket(board?.id, handleCardCreated, handleCardUpdated, handleColumnCreated, handleCardDeleted, handleCardsReordered);
+  useBoardWebSocket(
+    board?.id,
+    handleCardCreated,
+    handleCardUpdated,
+    handleColumnCreated,
+    handleCardDeleted,
+    handleColumnUpdated,
+    handleColumnDeleted,
+    handleCardsReordered
+  );
 
   const onDragEnd = async (result: DropResult) => {
     const { destination, source } = result;
@@ -183,7 +224,6 @@ export default function BoardView() {
       // Fire and forget backend update
       cardApi.reorderCards(board.id, { cards: updates }).catch(err => {
         console.error('Failed to reorder cards', err);
-        // We could implement rollback here if it fails
       });
 
       return newState;
@@ -203,11 +243,30 @@ export default function BoardView() {
     return <div className="p-5">Loading...</div>;
   }
 
+  const isAdmin = currentUser?.role === 'admin';
+
   return (
     <div className="p-5">
-      <p className="text-gray-600 m-0 mb-3 text-sm">
-        You are viewing this board via a shared link.
-      </p>
+      {needsJoin && board && (
+        <JoinBoardModal
+          boardId={board.id}
+          boardName={board.name}
+          onJoined={(user) => {
+            setCurrentUser(user);
+            setNeedsJoin(false);
+          }}
+        />
+      )}
+      <div className="flex justify-between items-center mb-2">
+        <p className="text-gray-600 m-0 text-sm">
+          You are viewing this board via a shared link.
+        </p>
+        {currentUser && (
+          <span className="text-sm text-gray-600">
+            Logged in as <strong>{currentUser.name}</strong> ({currentUser.role})
+          </span>
+        )}
+      </div>
       <h2 className="my-2 mb-5 text-2xl font-bold">{board.name}</h2>
       
       <DragDropContext onDragEnd={onDragEnd}>
@@ -218,12 +277,15 @@ export default function BoardView() {
               column={col}
               cards={cardsByColumn[col.id] ?? []}
               boardId={board.id}
+              isAdmin={isAdmin}
               onCardCreated={handleCardCreated}
               onCardUpdated={handleCardUpdated}
               onCardDeleted={handleCardDeleted}
+              onColumnUpdated={handleColumnUpdated}
+              onColumnDeleted={handleColumnDeleted}
             />
           ))}
-          <ColumnForm boardId={board.id} onColumnCreated={handleColumnCreated} />
+          {isAdmin && <ColumnForm boardId={board.id} onColumnCreated={handleColumnCreated} />}
         </div>
       </DragDropContext>
     </div>

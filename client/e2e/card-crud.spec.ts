@@ -11,8 +11,13 @@ test('card CRUD operations: create, update, delete', async ({ page }) => {
   // Click on the newly created board in the board list
   await page.getByRole('link', { name: 'CRUD Test Board' }).last().click();
 
-  // Wait for navigation to the board page (the heading should appear)
-  await expect(page.getByRole('heading', { name: 'CRUD Test Board' })).toBeVisible({ timeout: 10000 });
+  // Handle Join Board modal
+  await expect(page.getByRole('heading', { name: 'Join CRUD Test Board' })).toBeVisible({ timeout: 10000 });
+  await page.fill('input[placeholder="Your name"]', 'Test Author');
+  await page.click('button:has-text("Join Board")');
+
+  // Wait for board page heading
+  await expect(page.getByRole('heading', { name: 'CRUD Test Board', exact: true })).toBeVisible({ timeout: 10000 });
 
   // Create a new column before adding cards since boards start empty
   await page.getByRole('button', { name: '+ Add a column' }).click();
@@ -24,7 +29,6 @@ test('card CRUD operations: create, update, delete', async ({ page }) => {
   const firstColumn = page.locator('div', { has: page.locator('h3', { hasText: 'Good' }) }).first();
   await firstColumn.getByRole('button', { name: '+ Add a card' }).click();
   await firstColumn.locator('textarea[placeholder="What\'s on your mind?"]').fill('Test card content');
-  await firstColumn.locator('input[placeholder="Your name"]').fill('Test Author');
   await firstColumn.getByRole('button', { name: 'Add card' }).click();
 
   // Verify card is created

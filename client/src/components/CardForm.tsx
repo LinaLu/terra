@@ -10,24 +10,21 @@ interface CardFormProps {
 export default function CardForm({ boardId, columnId, onCardCreated }: CardFormProps) {
   const [open, setOpen] = useState(false);
   const [content, setContent] = useState('');
-  const [author, setAuthor] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!content.trim() || !author.trim()) return;
+    if (!content.trim()) return;
     try {
       setSubmitting(true);
       const newCard = await cardApi.createCard(boardId, {
         column_id: columnId,
         content: content.trim(),
-        author: author.trim(),
       });
       onCardCreated(newCard);
       setError(null);
       setContent('');
-      setAuthor('');
       setOpen(false);
     } catch (err) {
       console.error('Failed to create card:', err);
@@ -40,7 +37,6 @@ export default function CardForm({ boardId, columnId, onCardCreated }: CardFormP
   const handleCancel = () => {
     setOpen(false);
     setContent('');
-    setAuthor('');
     setError(null);
   };
 
@@ -64,13 +60,6 @@ export default function CardForm({ boardId, columnId, onCardCreated }: CardFormP
         rows={3}
         className="w-full p-1.5 text-sm border border-gray-300 rounded resize-y box-border"
       />
-      <input
-        type="text"
-        value={author}
-        onChange={(e) => setAuthor(e.target.value)}
-        placeholder="Your name"
-        className="w-full p-1.5 text-sm border border-gray-300 rounded box-border"
-      />
       {error && (
         <div className="text-red-800 bg-red-100 border border-red-200 p-1.5 rounded text-sm">
           {error}
@@ -79,9 +68,9 @@ export default function CardForm({ boardId, columnId, onCardCreated }: CardFormP
       <div className="flex gap-1.5">
         <button
           type="submit"
-          disabled={submitting || !content.trim() || !author.trim()}
+          disabled={submitting || !content.trim()}
           className={`flex-1 p-1.5 text-white border-none rounded text-sm ${
-            submitting || !content.trim() || !author.trim() ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 cursor-pointer'
+            submitting || !content.trim() ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 cursor-pointer'
           }`}
         >
           {submitting ? 'Adding...' : 'Add card'}

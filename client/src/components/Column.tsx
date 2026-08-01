@@ -1,22 +1,55 @@
 import { useState } from 'react';
 import { Droppable, Draggable } from '@hello-pangea/dnd';
-import { Column as ColumnType, Card, cardApi } from '../services/api';
+import { Column as ColumnType, Card, cardApi, columnApi } from '../services/api';
 import CardForm from './CardForm';
 
 interface ColumnProps {
   column: ColumnType;
   cards: Card[];
   boardId: number;
+  isAdmin?: boolean;
   onCardCreated: (card: Card) => void;
   onCardUpdated?: (card: Card) => void;
   onCardDeleted?: (cardId: number, columnId: number) => void;
+  onColumnUpdated?: (column: ColumnType) => void;
+  onColumnDeleted?: (columnId: number) => void;
 }
 
-export default function Column({ column, cards, boardId, onCardCreated, onCardUpdated, onCardDeleted }: ColumnProps) {
+export default function Column({ column, cards, boardId, isAdmin, onCardCreated, onCardUpdated, onCardDeleted, onColumnUpdated, onColumnDeleted }: ColumnProps) {
   const [votingId, setVotingId] = useState<number | null>(null);
   const [editingCardId, setEditingCardId] = useState<number | null>(null);
   const [editContent, setEditContent] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const [isEditingColumn, setIsEditingColumn] = useState(false);
+  const [columnName, setColumnName] = useState(column.name);
+
+  const handleSaveColumnEdit = async () => {
+    if (!columnName.trim()) return;
+    try {
+      setIsSubmitting(true);
+      const updated = await columnApi.updateColumn(boardId, column.id, { name: columnName.trim() });
+      onColumnUpdated?.(updated);
+      setIsEditingColumn(false);
+    } catch (err) {
+      console.error('Failed to update column:', err);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteColumn = async () => {
+    if (!window.confirm(`Are you sure you want to delete column "${column.name}" and all its cards?`)) return;
+    try {
+      setIsSubmitting(true);
+      await columnApi.deleteColumn(boardId, column.id);
+      onColumnDeleted?.(column.id);
+    } catch (err) {
+      console.error('Failed to delete column:', err);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const notifyUpdated = (updatedCard: Card) => {
     onCardUpdated?.(updatedCard);
@@ -85,9 +118,58 @@ export default function Column({ column, cards, boardId, onCardCreated, onCardUp
 
   return (
     <div className="flex-1 min-w-[240px] flex flex-col border border-gray-300 rounded p-3 bg-gray-50">
-      <h3 className="m-0 mb-3 text-base font-bold border-b-2 border-blue-600 pb-1.5">
-        {column.name}
-      </h3>
+      <div className="flex justify-between items-center mb-3 border-b-2 border-blue-600 pb-1.5">
+        {isEditingColumn ? (
+          <div className="flex gap-1 w-full">
+            <input
+              type="text"
+              value={columnName}
+              onChange={(e) => setColumnName(e.target.value)}
+              className="flex-1 p-1 text-sm border border-gray-300 rounded"
+            />
+            <button
+              onClick={handleSaveColumnEdit}
+              disabled={isSubmitting || !columnName.trim()}
+              className="px-2 py-0.5 text-xs bg-blue-600 text-white rounded disabled:opacity-50"
+            >
+              Save
+            </button>
+            <button
+              onClick={() => { setIsEditingColumn(false); setColumnName(column.name); }}
+              disabled={isSubmitting}
+              className="px-2 py-0.5 text-xs bg-transparent border border-gray-300 rounded"
+            >
+              Cancel
+            </button>
+          </div>
+        ) : (
+          <>
+            <h3 className="m-0 text-base font-bold">
+              {column.name}
+            </h3>
+            {isAdmin && (
+              <div className="flex gap-1.5">
+                <button
+                  onClick={() => setIsEditingColumn(true)}
+                  disabled={isSubmitting}
+                  title="Rename column"
+                  className="bg-transparent border-none cursor-pointer text-xs text-blue-600"
+                >
+                  ✏️
+                </button>
+                <button
+                  onClick={handleDeleteColumn}
+                  disabled={isSubmitting}
+                  title="Delete column"
+                  className="bg-transparent border-none cursor-pointer text-xs text-red-600"
+                >
+                  🗑️
+                </button>
+              </div>
+            )}
+          </>
+        )}
+      </div>
       <Droppable droppableId={String(column.id)}>
         {(provided) => (
           <div 

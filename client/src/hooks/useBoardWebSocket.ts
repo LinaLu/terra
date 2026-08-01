@@ -3,7 +3,8 @@ import { Card, Column, getBoardWsUrl } from '../services/api';
 
 type WebSocketMessage =
   | { type: 'card_created' | 'card_updated'; data: Card }
-  | { type: 'column_created'; data: Column }
+  | { type: 'column_created' | 'column_updated'; data: Column }
+  | { type: 'column_deleted'; data: { id: number } }
   | { type: 'card_deleted'; data: { id: number; column_id: number } }
   | { type: 'cards_reordered'; data: Card[] };
 
@@ -13,12 +14,16 @@ export function useBoardWebSocket(
   onCardUpdated: (card: Card) => void,
   onColumnCreated: (column: Column) => void,
   onCardDeleted?: (cardId: number, columnId: number) => void,
+  onColumnUpdated?: (column: Column) => void,
+  onColumnDeleted?: (columnId: number) => void,
   onCardsReordered?: (cards: Card[]) => void
 ) {
   const onCardCreatedRef = useRef(onCardCreated);
   const onCardUpdatedRef = useRef(onCardUpdated);
   const onColumnCreatedRef = useRef(onColumnCreated);
   const onCardDeletedRef = useRef(onCardDeleted);
+  const onColumnUpdatedRef = useRef(onColumnUpdated);
+  const onColumnDeletedRef = useRef(onColumnDeleted);
   const onCardsReorderedRef = useRef(onCardsReordered);
 
   useEffect(() => {
@@ -26,8 +31,10 @@ export function useBoardWebSocket(
     onCardUpdatedRef.current = onCardUpdated;
     onColumnCreatedRef.current = onColumnCreated;
     onCardDeletedRef.current = onCardDeleted;
+    onColumnUpdatedRef.current = onColumnUpdated;
+    onColumnDeletedRef.current = onColumnDeleted;
     onCardsReorderedRef.current = onCardsReordered;
-  }, [onCardCreated, onCardUpdated, onColumnCreated, onCardDeleted, onCardsReordered]);
+  }, [onCardCreated, onCardUpdated, onColumnCreated, onCardDeleted, onColumnUpdated, onColumnDeleted, onCardsReordered]);
 
   useEffect(() => {
     if (!boardId) return;
@@ -49,6 +56,14 @@ export function useBoardWebSocket(
             onCardUpdatedRef.current(payload.data);
           } else if (payload.type === 'column_created') {
             onColumnCreatedRef.current(payload.data);
+          } else if (payload.type === 'column_updated') {
+            if (onColumnUpdatedRef.current) {
+              onColumnUpdatedRef.current(payload.data);
+            }
+          } else if (payload.type === 'column_deleted') {
+            if (onColumnDeletedRef.current) {
+              onColumnDeletedRef.current(payload.data.id);
+            }
           } else if (payload.type === 'card_deleted') {
             if (onCardDeletedRef.current) {
               onCardDeletedRef.current(payload.data.id, payload.data.column_id);

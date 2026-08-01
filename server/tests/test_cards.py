@@ -1,10 +1,18 @@
 def test_create_card(client):
     board_id = client.post("/api/boards", json={"name": "Retro"}).json()["id"]
-    good_column_id = client.post(f"/api/boards/{board_id}/columns", json={"name": "Good"}).json()["id"]
+    token = client.post(f"/api/boards/{board_id}/join", json={"name": "Alice"}).json()["session_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    good_column_id = client.post(
+        f"/api/boards/{board_id}/columns",
+        json={"name": "Good"},
+        headers=headers,
+    ).json()["id"]
 
     response = client.post(
         f"/api/boards/{board_id}/cards",
-        json={"column_id": good_column_id, "content": "CI is fast", "author": "Alice"},
+        json={"column_id": good_column_id, "content": "CI is fast"},
+        headers=headers,
     )
     assert response.status_code == 201
     card = response.json()
@@ -17,10 +25,20 @@ def test_create_card(client):
 
 def test_get_cards_returns_cards_ordered_by_created_at(client):
     board_id = client.post("/api/boards", json={"name": "Retro"}).json()["id"]
-    col_id = client.post(f"/api/boards/{board_id}/columns", json={"name": "Good"}).json()["id"]
+    token_a = client.post(f"/api/boards/{board_id}/join", json={"name": "A"}).json()["session_token"]
+    headers_a = {"Authorization": f"Bearer {token_a}"}
 
-    client.post(f"/api/boards/{board_id}/cards", json={"column_id": col_id, "content": "First", "author": "A"})
-    client.post(f"/api/boards/{board_id}/cards", json={"column_id": col_id, "content": "Second", "author": "B"})
+    token_b = client.post(f"/api/boards/{board_id}/join", json={"name": "B"}).json()["session_token"]
+    headers_b = {"Authorization": f"Bearer {token_b}"}
+
+    col_id = client.post(
+        f"/api/boards/{board_id}/columns",
+        json={"name": "Good"},
+        headers=headers_a,
+    ).json()["id"]
+
+    client.post(f"/api/boards/{board_id}/cards", json={"column_id": col_id, "content": "First"}, headers=headers_a)
+    client.post(f"/api/boards/{board_id}/cards", json={"column_id": col_id, "content": "Second"}, headers=headers_b)
 
     response = client.get(f"/api/boards/{board_id}/cards")
     assert response.status_code == 200
@@ -33,9 +51,13 @@ def test_get_cards_returns_cards_ordered_by_created_at(client):
 def test_get_cards_only_returns_cards_for_requested_board(client):
     board_a = client.post("/api/boards", json={"name": "Board A"}).json()["id"]
     board_b = client.post("/api/boards", json={"name": "Board B"}).json()["id"]
-    col_a = client.post(f"/api/boards/{board_a}/columns", json={"name": "Good"}).json()["id"]
 
-    client.post(f"/api/boards/{board_a}/cards", json={"column_id": col_a, "content": "Only in A", "author": "X"})
+    token_a = client.post(f"/api/boards/{board_a}/join", json={"name": "X"}).json()["session_token"]
+    headers_a = {"Authorization": f"Bearer {token_a}"}
+
+    col_a = client.post(f"/api/boards/{board_a}/columns", json={"name": "Good"}, headers=headers_a).json()["id"]
+
+    client.post(f"/api/boards/{board_a}/cards", json={"column_id": col_a, "content": "Only in A"}, headers=headers_a)
 
     response = client.get(f"/api/boards/{board_b}/cards")
     assert response.status_code == 200
@@ -44,21 +66,33 @@ def test_get_cards_only_returns_cards_for_requested_board(client):
 
 
 def test_create_card_unknown_board_returns_404(client):
+    board_id = client.post("/api/boards", json={"name": "Retro"}).json()["id"]
+    token = client.post(f"/api/boards/{board_id}/join", json={"name": "Alice"}).json()["session_token"]
+
     response = client.post(
         "/api/boards/99999/cards",
-        json={"column_id": 1, "content": "x", "author": "y"},
+        json={"column_id": 1, "content": "x"},
+        headers={"Authorization": f"Bearer {token}"},
     )
-    assert response.status_code == 404
+    assert response.status_code == 401
 
 
 def test_create_card_column_from_different_board_returns_404(client):
     board_a = client.post("/api/boards", json={"name": "Board A"}).json()["id"]
     board_b = client.post("/api/boards", json={"name": "Board B"}).json()["id"]
-    col_a_id = client.post(f"/api/boards/{board_a}/columns", json={"name": "Good"}).json()["id"]
+
+    token_a = client.post(f"/api/boards/{board_a}/join", json={"name": "Alice"}).json()["session_token"]
+    token_b = client.post(f"/api/boards/{board_b}/join", json={"name": "Bob"}).json()["session_token"]
+
+    headers_a = {"Authorization": f"Bearer {token_a}"}
+    headers_b = {"Authorization": f"Bearer {token_b}"}
+
+    col_a_id = client.post(f"/api/boards/{board_a}/columns", json={"name": "Good"}, headers=headers_a).json()["id"]
 
     response = client.post(
         f"/api/boards/{board_b}/cards",
-        json={"column_id": col_a_id, "content": "sneaky", "author": "hacker"},
+        json={"column_id": col_a_id, "content": "sneaky"},
+        headers=headers_b,
     )
     assert response.status_code == 404
 
@@ -70,11 +104,15 @@ def test_get_cards_unknown_board_returns_404(client):
 
 def test_upvote_card(client):
     board_id = client.post("/api/boards", json={"name": "Retro"}).json()["id"]
-    col_id = client.post(f"/api/boards/{board_id}/columns", json={"name": "Good"}).json()["id"]
+    token = client.post(f"/api/boards/{board_id}/join", json={"name": "Alice"}).json()["session_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    col_id = client.post(f"/api/boards/{board_id}/columns", json={"name": "Good"}, headers=headers).json()["id"]
 
     card = client.post(
         f"/api/boards/{board_id}/cards",
-        json={"column_id": col_id, "content": "Upvote me", "author": "Alice"},
+        json={"column_id": col_id, "content": "Upvote me"},
+        headers=headers,
     ).json()
     assert card["votes"] == 0
 
@@ -89,11 +127,15 @@ def test_upvote_card(client):
 
 def test_downvote_card(client):
     board_id = client.post("/api/boards", json={"name": "Retro"}).json()["id"]
-    col_id = client.post(f"/api/boards/{board_id}/columns", json={"name": "Good"}).json()["id"]
+    token = client.post(f"/api/boards/{board_id}/join", json={"name": "Bob"}).json()["session_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    col_id = client.post(f"/api/boards/{board_id}/columns", json={"name": "Good"}, headers=headers).json()["id"]
 
     card = client.post(
         f"/api/boards/{board_id}/cards",
-        json={"column_id": col_id, "content": "Downvote me", "author": "Bob"},
+        json={"column_id": col_id, "content": "Downvote me"},
+        headers=headers,
     ).json()
     assert card["votes"] == 0
 
