@@ -81,7 +81,20 @@ export default function BoardPage() {
     });
   }, []);
 
-  useBoardWebSocket(boardId, handleCardCreated, handleCardUpdated, handleColumnCreated);
+  const handleCardDeleted = useCallback((cardId: number, columnId: number) => {
+    setCardsByColumn((prev) => {
+      const existing = prev[columnId] ?? [];
+      if (!existing.some((c) => c.id === cardId)) {
+        return prev;
+      }
+      return {
+        ...prev,
+        [columnId]: existing.filter((card) => card.id !== cardId),
+      };
+    });
+  }, []);
+
+  useBoardWebSocket(boardId, handleCardCreated, handleCardUpdated, handleColumnCreated, handleCardDeleted);
 
   if (loading) {
     return <div style={{ padding: '20px' }}>Loading...</div>;
@@ -111,6 +124,7 @@ export default function BoardPage() {
             boardId={boardId}
             onCardCreated={handleCardCreated}
             onCardUpdated={handleCardUpdated}
+            onCardDeleted={handleCardDeleted}
           />
         ))}
         <ColumnForm boardId={boardId} onColumnCreated={handleColumnCreated} />

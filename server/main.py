@@ -96,6 +96,10 @@ class CardCreate(BaseModel):
     author: str
 
 
+class CardUpdate(BaseModel):
+    content: str
+
+
 class CardResponse(BaseModel):
     id: int
     column_id: int
@@ -249,6 +253,47 @@ async def create_card(board_id: int, card: CardCreate, db: Session = Depends(get
     card_data = jsonable_encoder(CardResponse.model_validate(db_card))
     await manager.broadcast(board_id, {"type": "card_created", "data": card_data})
     return db_card
+
+
+@app.put("/api/boards/{board_id}/cards/{card_id}", response_model=CardResponse)
+async def update_card(board_id: int, card_id: int, card_update: CardUpdate, db: Session = Depends(get_db)):
+    if not db.query(Board).filter(Board.id == board_id).first():
+        raise HTTPException(status_code=404, detail="Board not found")
+    card = (
+        db.query(Card)
+        .join(BoardColumn, Card.column_id == BoardColumn.id)
+        .filter(Card.id == card_id, BoardColumn.board_id == board_id)
+        .first()
+    )
+    if card is None:
+        raise HTTPException(status_code=404, detail="Card not found")
+    card.content = card_update.content
+    db.commit()
+    db.refresh(card)
+    card_data = jsonable_encoder(CardResponse.model_validate(card))
+    await manager.broadcast(board_id, {"type": "card_updated", "data": card_data})
+    return card
+
+
+@app.delete("/api/boards/{board_id}/cards/{card_id}", status_code=204)
+async def delete_card(board_id: int, card_id: int, db: Session = Depends(get_db)):
+    if not db.query(Board).filter(Board.id == board_id).first():
+        raise HTTPException(status_code=404, detail="Board not found")
+    card = (
+        db.query(Card)
+        .join(BoardColumn, Card.column_id == BoardColumn.id)
+        .filter(Card.id == card_id, BoardColumn.board_id == board_id)
+        .first()
+    )
+    if card is None:
+        raise HTTPException(status_code=404, detail="Card not found")
+    
+    column_id = card.column_id
+    db.delete(card)
+    db.commit()
+    
+    await manager.broadcast(board_id, {"type": "card_deleted", "data": {"id": card_id, "column_id": column_id}})
+    return None
 
 
 @app.post("/api/boards/{board_id}/cards/{card_id}/upvote", response_model=CardResponse)
