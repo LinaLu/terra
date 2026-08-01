@@ -17,35 +17,23 @@ export default function BoardForm({ onSubmit, loading }: BoardFormProps) {
   };
 
   return (
-    <div style={{ padding: '20px', borderBottom: '1px solid #ddd' }}>
-      <h2>Create New Board</h2>
-      <form onSubmit={handleSubmit} style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+    <div className="p-5 border-b border-gray-300">
+      <h2 className="text-2xl font-bold mb-4">Create New Board</h2>
+      <form onSubmit={handleSubmit} className="flex gap-2.5 items-center">
         <input
           type="text"
           value={boardName}
           onChange={(e) => setBoardName(e.target.value)}
           placeholder="Enter board name"
           disabled={loading}
-          style={{
-            flex: 1,
-            padding: '10px',
-            fontSize: '16px',
-            border: '1px solid #ddd',
-            borderRadius: '4px',
-          }}
+          className="flex-1 p-2.5 text-base border border-gray-300 rounded"
         />
         <button
           type="submit"
           disabled={loading || !boardName.trim()}
-          style={{
-            padding: '10px 20px',
-            fontSize: '16px',
-            backgroundColor: loading ? '#ccc' : '#007bff',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: loading ? 'not-allowed' : 'pointer',
-          }}
+          className={`px-5 py-2.5 text-base text-white border-none rounded cursor-pointer ${
+            loading || !boardName.trim() ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'
+          }`}
         >
           {loading ? 'Creating...' : 'Create Board'}
         </button>

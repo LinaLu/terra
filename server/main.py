@@ -94,7 +94,7 @@ class CardCreate(BaseModel):
     column_id: int
     content: str
     author: str
-
+    position: Optional[int] = None
 
 class CardUpdate(BaseModel):
     content: str
@@ -106,11 +106,20 @@ class CardResponse(BaseModel):
     content: str
     author: str
     votes: int = 0
+    position: int
     created_at: datetime
 
     class Config:
         from_attributes = True
 
+
+class CardReorderRequest(BaseModel):
+    id: int
+    column_id: int
+    position: int
+
+class ReorderCardsRequest(BaseModel):
+    cards: List[CardReorderRequest]
 
 # --- Lifecycle ---
 
@@ -225,7 +234,7 @@ def get_cards(board_id: int, db: Session = Depends(get_db)):
         db.query(Card)
         .join(BoardColumn, Card.column_id == BoardColumn.id)
         .filter(BoardColumn.board_id == board_id)
-        .order_by(Card.created_at)
+        .order_by(Card.position, Card.created_at)
         .all()
     )
 
@@ -241,10 +250,18 @@ async def create_card(board_id: int, card: CardCreate, db: Session = Depends(get
     )
     if column is None:
         raise HTTPException(status_code=404, detail="Column not found")
+
+    if card.position is not None:
+        position = card.position
+    else:
+        max_pos = db.query(func.max(Card.position)).filter(Card.column_id == card.column_id).scalar()
+        position = (max_pos or 0) + 1
+
     db_card = Card(
         column_id=card.column_id,
         content=card.content,
         author=card.author,
+        position=position,
         created_at=datetime.now(timezone.utc),
     )
     db.add(db_card)
@@ -314,6 +331,30 @@ async def upvote_card(board_id: int, card_id: int, db: Session = Depends(get_db)
     card_data = jsonable_encoder(CardResponse.model_validate(card))
     await manager.broadcast(board_id, {"type": "card_updated", "data": card_data})
     return card
+
+
+@app.put("/api/boards/{board_id}/cards/reorder")
+async def reorder_cards(board_id: int, req: ReorderCardsRequest, db: Session = Depends(get_db)):
+    if not db.query(Board).filter(Board.id == board_id).first():
+        raise HTTPException(status_code=404, detail="Board not found")
+    
+    # We update all affected cards in one transaction
+    # Since we need to make sure cards belong to the board, we could verify each card, 
+    # but since the UI sends only valid cards, we can do it optimistically.
+    card_updates = []
+    
+    for c_req in req.cards:
+        card = db.query(Card).join(BoardColumn, Card.column_id == BoardColumn.id).filter(Card.id == c_req.id, BoardColumn.board_id == board_id).first()
+        if card:
+            card.column_id = c_req.column_id
+            card.position = c_req.position
+            card_updates.append(card)
+            
+    db.commit()
+    
+    # Broadcast an event
+    await manager.broadcast(board_id, {"type": "cards_reordered", "data": [jsonable_encoder(CardResponse.model_validate(c)) for c in card_updates]})
+    return {"message": "Cards reordered successfully"}
 
 
 @app.post("/api/boards/{board_id}/cards/{card_id}/downvote", response_model=CardResponse)
