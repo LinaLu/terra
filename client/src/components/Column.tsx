@@ -1,21 +1,54 @@
 import { useState } from 'react';
-import { Column as ColumnType, Card, cardApi } from '../services/api';
+import { Column as ColumnType, Card, cardApi, columnApi } from '../services/api';
 import CardForm from './CardForm';
 
 interface ColumnProps {
   column: ColumnType;
   cards: Card[];
   boardId: number;
+  isAdmin?: boolean;
   onCardCreated: (card: Card) => void;
   onCardUpdated?: (card: Card) => void;
   onCardDeleted?: (cardId: number, columnId: number) => void;
+  onColumnUpdated?: (column: ColumnType) => void;
+  onColumnDeleted?: (columnId: number) => void;
 }
 
-export default function Column({ column, cards, boardId, onCardCreated, onCardUpdated, onCardDeleted }: ColumnProps) {
+export default function Column({ column, cards, boardId, isAdmin, onCardCreated, onCardUpdated, onCardDeleted, onColumnUpdated, onColumnDeleted }: ColumnProps) {
   const [votingId, setVotingId] = useState<number | null>(null);
   const [editingCardId, setEditingCardId] = useState<number | null>(null);
   const [editContent, setEditContent] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const [isEditingColumn, setIsEditingColumn] = useState(false);
+  const [columnName, setColumnName] = useState(column.name);
+
+  const handleSaveColumnEdit = async () => {
+    if (!columnName.trim()) return;
+    try {
+      setIsSubmitting(true);
+      const updated = await columnApi.updateColumn(boardId, column.id, { name: columnName.trim() });
+      onColumnUpdated?.(updated);
+      setIsEditingColumn(false);
+    } catch (err) {
+      console.error('Failed to update column:', err);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteColumn = async () => {
+    if (!window.confirm(`Are you sure you want to delete column "${column.name}" and all its cards?`)) return;
+    try {
+      setIsSubmitting(true);
+      await columnApi.deleteColumn(boardId, column.id);
+      onColumnDeleted?.(column.id);
+    } catch (err) {
+      console.error('Failed to delete column:', err);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const notifyUpdated = (updatedCard: Card) => {
     onCardUpdated?.(updatedCard);
@@ -84,9 +117,58 @@ export default function Column({ column, cards, boardId, onCardCreated, onCardUp
 
   return (
     <div style={{ flex: 1, minWidth: '240px', display: 'flex', flexDirection: 'column', border: '1px solid #ddd', borderRadius: '4px', padding: '12px', backgroundColor: '#f9f9f9' }}>
-      <h3 style={{ margin: '0 0 12px 0', fontSize: '1rem', fontWeight: 'bold', borderBottom: '2px solid #007bff', paddingBottom: '6px' }}>
-        {column.name}
-      </h3>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', borderBottom: '2px solid #007bff', paddingBottom: '6px' }}>
+        {isEditingColumn ? (
+          <div style={{ display: 'flex', gap: '4px', width: '100%' }}>
+            <input
+              type="text"
+              value={columnName}
+              onChange={(e) => setColumnName(e.target.value)}
+              style={{ flex: 1, padding: '4px', fontSize: '0.9rem', border: '1px solid #ccc', borderRadius: '4px' }}
+            />
+            <button
+              onClick={handleSaveColumnEdit}
+              disabled={isSubmitting || !columnName.trim()}
+              style={{ padding: '2px 6px', fontSize: '0.75rem', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px' }}
+            >
+              Save
+            </button>
+            <button
+              onClick={() => { setIsEditingColumn(false); setColumnName(column.name); }}
+              disabled={isSubmitting}
+              style={{ padding: '2px 6px', fontSize: '0.75rem', backgroundColor: 'transparent', border: '1px solid #ccc', borderRadius: '4px' }}
+            >
+              Cancel
+            </button>
+          </div>
+        ) : (
+          <>
+            <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 'bold' }}>
+              {column.name}
+            </h3>
+            {isAdmin && (
+              <div style={{ display: 'flex', gap: '6px' }}>
+                <button
+                  onClick={() => setIsEditingColumn(true)}
+                  disabled={isSubmitting}
+                  title="Rename column"
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.8rem', color: '#007bff' }}
+                >
+                  ✏️
+                </button>
+                <button
+                  onClick={handleDeleteColumn}
+                  disabled={isSubmitting}
+                  title="Delete column"
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.8rem', color: '#dc3545' }}
+                >
+                  🗑️
+                </button>
+              </div>
+            )}
+          </>
+        )}
+      </div>
       <div style={{ flex: 1 }}>
         {cards.map((card) => (
           <div key={card.id} style={{ padding: '8px', marginBottom: '8px', backgroundColor: 'white', border: '1px solid #e0e0e0', borderRadius: '4px' }}>

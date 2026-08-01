@@ -15,12 +15,11 @@ The application is structured as a frontend/backend split with a relational data
 - **Database**: PostgreSQL.
 - **Linting**: ESLint for frontend, Ruff for backend.
 - **Testing**: 
-  - Unit tests: Vitest (frontend), pytest (backend)
-  - E2E tests: Playwright
+  - Unit tests: Vitest (frontend), pytest (backend). Run `make test` from the root directory to execute the full unit test sweep across backend and frontend.
+  - E2E tests: Playwright. Run `make test-e2e` to start services and execute E2E tests (`make test-e2e-down` to clean up).
 - **Database Migrations**: Schema migrations are currently implemented in the ORM and executed manually (no automated migration tool like Alembic yet).
 
 ## GitHub Operations
 
 - All `gh` operations MUST be prefixed with `GH_CONFIG_DIR=.config/gh_auth` (e.g. `GH_CONFIG_DIR=.config/gh_auth gh pr create`).
-- Pull Requests should be created using `gh` with a lean, concise description.
-
+- Pull Requests should be created using `gh`. The description should be formulated by summarizing all the changes of the current branch.

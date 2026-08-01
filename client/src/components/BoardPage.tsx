@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { boardApi, columnApi, cardApi, Board, Column, Card } from '../services/api';
+import { boardApi, columnApi, cardApi, Board, Column, Card, User, getBoardToken } from '../services/api';
 import ColumnComponent from './Column';
 import ColumnForm from './ColumnForm';
+import JoinBoardModal from './JoinBoardModal';
 import { useBoardWebSocket } from '../hooks/useBoardWebSocket';
 
 export default function BoardPage() {
@@ -10,6 +11,8 @@ export default function BoardPage() {
   const boardId = Number(id);
 
   const [board, setBoard] = useState<Board | null>(null);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [needsJoin, setNeedsJoin] = useState(false);
   const [columns, setColumns] = useState<Column[]>([]);
   const [cardsByColumn, setCardsByColumn] = useState<Record<number, Card[]>>({});
   const [loading, setLoading] = useState(true);
@@ -20,6 +23,20 @@ export default function BoardPage() {
       try {
         const boardData = await boardApi.getBoardById(boardId);
         setBoard(boardData);
+
+        const token = getBoardToken(boardId);
+        if (token) {
+          try {
+            const user = await boardApi.getMe(boardId);
+            setCurrentUser(user);
+            setNeedsJoin(false);
+          } catch {
+            setNeedsJoin(true);
+          }
+        } else {
+          setNeedsJoin(true);
+        }
+
         const [columnsData, cardsData] = await Promise.all([
           columnApi.getColumns(boardId),
           cardApi.getCards(boardId),
@@ -46,6 +63,21 @@ export default function BoardPage() {
     setColumns((prev) => {
       if (prev.some((c) => c.id === column.id)) return prev;
       return [...prev, column].sort((a, b) => a.position - b.position);
+    });
+  }, []);
+
+  const handleColumnUpdated = useCallback((updatedColumn: Column) => {
+    setColumns((prev) =>
+      prev.map((c) => (c.id === updatedColumn.id ? updatedColumn : c))
+    );
+  }, []);
+
+  const handleColumnDeleted = useCallback((columnId: number) => {
+    setColumns((prev) => prev.filter((c) => c.id !== columnId));
+    setCardsByColumn((prev) => {
+      const next = { ...prev };
+      delete next[columnId];
+      return next;
     });
   }, []);
 
@@ -94,7 +126,15 @@ export default function BoardPage() {
     });
   }, []);
 
-  useBoardWebSocket(boardId, handleCardCreated, handleCardUpdated, handleColumnCreated, handleCardDeleted);
+  useBoardWebSocket(
+    boardId,
+    handleCardCreated,
+    handleCardUpdated,
+    handleColumnCreated,
+    handleCardDeleted,
+    handleColumnUpdated,
+    handleColumnDeleted
+  );
 
   if (loading) {
     return <div style={{ padding: '20px' }}>Loading...</div>;
@@ -111,9 +151,28 @@ export default function BoardPage() {
     );
   }
 
+  const isAdmin = currentUser?.role === 'admin';
+
   return (
     <div style={{ padding: '20px' }}>
-      <Link to="/" style={{ color: '#007bff', textDecoration: 'none', fontSize: '0.9rem' }}>← Back to boards</Link>
+      {needsJoin && board && (
+        <JoinBoardModal
+          boardId={boardId}
+          boardName={board.name}
+          onJoined={(user) => {
+            setCurrentUser(user);
+            setNeedsJoin(false);
+          }}
+        />
+      )}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+        <Link to="/" style={{ color: '#007bff', textDecoration: 'none', fontSize: '0.9rem' }}>← Back to boards</Link>
+        {currentUser && (
+          <span style={{ fontSize: '0.9rem', color: '#555' }}>
+            Logged in as <strong>{currentUser.name}</strong> ({currentUser.role})
+          </span>
+        )}
+      </div>
       <h2 style={{ margin: '8px 0 20px 0' }}>{board?.name}</h2>
       <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start', overflowX: 'auto', paddingBottom: '16px' }}>
         {columns.map((col) => (
@@ -122,12 +181,15 @@ export default function BoardPage() {
             column={col}
             cards={cardsByColumn[col.id] ?? []}
             boardId={boardId}
+            isAdmin={isAdmin}
             onCardCreated={handleCardCreated}
             onCardUpdated={handleCardUpdated}
             onCardDeleted={handleCardDeleted}
+            onColumnUpdated={handleColumnUpdated}
+            onColumnDeleted={handleColumnDeleted}
           />
         ))}
-        <ColumnForm boardId={boardId} onColumnCreated={handleColumnCreated} />
+        {isAdmin && <ColumnForm boardId={boardId} onColumnCreated={handleColumnCreated} />}
       </div>
     </div>
   );

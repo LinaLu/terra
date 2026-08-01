@@ -1,9 +1,10 @@
 """Database configuration and models."""
 
 import os
+import uuid
 from sqlalchemy import create_engine, Column, Integer, String, ForeignKey, DateTime
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import sessionmaker, relationship
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -21,6 +22,19 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
 
+# User model
+class User(Base):
+    """User model representing a participant in a board."""
+
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    board_id = Column(Integer, ForeignKey("boards.id"), nullable=False)
+    name = Column(String, nullable=False)
+    session_token = Column(String(36), unique=True, nullable=False, index=True, default=lambda: str(uuid.uuid4()))
+    role = Column(String, nullable=False)  # "admin" or "user"
+
+
 # Board model
 class Board(Base):
     """Board model representing a retrospective board."""
@@ -31,6 +45,7 @@ class Board(Base):
     name = Column(String, nullable=False, index=True)
     short_code = Column(String(6), unique=True, nullable=True, index=True)
     link_expires_at = Column(DateTime(timezone=True), nullable=True)
+    admin_id = Column(Integer, ForeignKey("users.id"), nullable=True)
 
 
 # BoardColumn model
@@ -54,9 +69,15 @@ class Card(Base):
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     column_id = Column(Integer, ForeignKey("columns.id"), nullable=False)
     content = Column(String, nullable=False)
-    author = Column(String, nullable=False)
+    author_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     votes = Column(Integer, nullable=False, default=0)
     created_at = Column(DateTime(timezone=True), nullable=False)
+    
+    author_user = relationship("User")
+    
+    @property
+    def author(self):
+        return self.author_user.name if self.author_user else ""
 
 
 # Dependency to get DB session

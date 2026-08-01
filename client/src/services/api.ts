@@ -22,6 +22,19 @@ export interface Board {
   name: string;
   short_code: string | null;
   link_expires_at: string | null;
+  admin_id: number | null;
+}
+
+export interface User {
+  id: number;
+  board_id: number;
+  name: string;
+  role: 'admin' | 'user';
+}
+
+export interface JoinResponse {
+  user: User;
+  session_token: string;
 }
 
 export interface LinkResponse {
@@ -56,12 +69,38 @@ export interface CreateColumnRequest {
 export interface CreateCardRequest {
   column_id: number;
   content: string;
-  author: string;
 }
 
 export interface UpdateCardRequest {
   content: string;
 }
+
+export const getBoardToken = (boardId: number): string | null => {
+  try {
+    const raw = localStorage.getItem('terra_tokens');
+    if (!raw) return null;
+    const tokens = JSON.parse(raw);
+    return tokens[boardId] ?? null;
+  } catch {
+    return null;
+  }
+};
+
+export const setBoardToken = (boardId: number, token: string): void => {
+  try {
+    const raw = localStorage.getItem('terra_tokens');
+    const tokens = raw ? JSON.parse(raw) : {};
+    tokens[boardId] = token;
+    localStorage.setItem('terra_tokens', JSON.stringify(tokens));
+  } catch (err) {
+    console.error('Failed to save token to localStorage:', err);
+  }
+};
+
+const getAuthHeaders = (boardId: number) => {
+  const token = getBoardToken(boardId);
+  return token ? { headers: { Authorization: `Bearer ${token}` } } : {};
+};
 
 export const getBoardWsUrl = (boardId: number): string => {
   const baseUrl = getApiUrl();
@@ -91,6 +130,14 @@ export const boardApi = {
     const response = await api.get<Board>(`/b/${code}`);
     return response.data;
   },
+  joinBoard: async (boardId: number, name: string): Promise<JoinResponse> => {
+    const response = await api.post<JoinResponse>(`/api/boards/${boardId}/join`, { name });
+    return response.data;
+  },
+  getMe: async (boardId: number): Promise<User> => {
+    const response = await api.get<User>(`/api/boards/${boardId}/me`, getAuthHeaders(boardId));
+    return response.data;
+  },
 };
 
 export const columnApi = {
@@ -99,8 +146,15 @@ export const columnApi = {
     return response.data;
   },
   createColumn: async (boardId: number, column: CreateColumnRequest): Promise<Column> => {
-    const response = await api.post<Column>(`/api/boards/${boardId}/columns`, column);
+    const response = await api.post<Column>(`/api/boards/${boardId}/columns`, column, getAuthHeaders(boardId));
     return response.data;
+  },
+  updateColumn: async (boardId: number, columnId: number, column: CreateColumnRequest): Promise<Column> => {
+    const response = await api.put<Column>(`/api/boards/${boardId}/columns/${columnId}`, column, getAuthHeaders(boardId));
+    return response.data;
+  },
+  deleteColumn: async (boardId: number, columnId: number): Promise<void> => {
+    await api.delete(`/api/boards/${boardId}/columns/${columnId}`, getAuthHeaders(boardId));
   },
 };
 
@@ -110,7 +164,7 @@ export const cardApi = {
     return response.data;
   },
   createCard: async (boardId: number, card: CreateCardRequest): Promise<Card> => {
-    const response = await api.post<Card>(`/api/boards/${boardId}/cards`, card);
+    const response = await api.post<Card>(`/api/boards/${boardId}/cards`, card, getAuthHeaders(boardId));
     return response.data;
   },
   updateCard: async (boardId: number, cardId: number, cardUpdate: UpdateCardRequest): Promise<Card> => {

@@ -2,17 +2,19 @@
 
 from datetime import datetime, timezone
 from typing import Dict, List, Optional
+import uuid
 
 from fastapi import FastAPI, Depends, HTTPException, WebSocket, WebSocketDisconnect, BackgroundTasks
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.encoders import jsonable_encoder
 from sqlalchemy.exc import OperationalError
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from sqlalchemy.orm import Session
 from sqlalchemy import func
+from sqlalchemy.orm import Session
 
-from database import get_db, init_db, SessionLocal, Board, BoardColumn, Card
-from links import create_board_link
+from database import Base, engine, get_db, init_db, Board, BoardColumn, Card, User
+from links import create_board_link, is_link_active
 
 app = FastAPI(title="Terra API", version="1.0.0")
 
@@ -23,6 +25,20 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# --- Security & Auth ---
+
+security = HTTPBearer(auto_error=False)
+
+def get_current_user(board_id: int, db: Session = Depends(get_db), credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)) -> User:
+    if not credentials:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    token = credentials.credentials
+    user = db.query(User).filter(User.session_token == token, User.board_id == board_id).first()
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid session token or user not in this board")
+    return user
+
 
 # --- WebSocket Manager ---
 
@@ -57,6 +73,22 @@ manager = ConnectionManager()
 
 # --- Pydantic models ---
 
+class UserCreate(BaseModel):
+    name: str
+
+class UserResponse(BaseModel):
+    id: int
+    board_id: int
+    name: str
+    role: str
+
+    class Config:
+        from_attributes = True
+
+class JoinResponse(BaseModel):
+    user: UserResponse
+    session_token: str
+
 class BoardCreate(BaseModel):
     name: str
 
@@ -66,6 +98,7 @@ class BoardResponse(BaseModel):
     name: str
     short_code: Optional[str] = None
     link_expires_at: Optional[datetime] = None
+    admin_id: Optional[int] = None
 
     class Config:
         from_attributes = True
@@ -93,7 +126,6 @@ class ColumnResponse(BaseModel):
 class CardCreate(BaseModel):
     column_id: int
     content: str
-    author: str
 
 
 class CardUpdate(BaseModel):
@@ -155,6 +187,46 @@ def create_board(board: BoardCreate, db: Session = Depends(get_db)):
     return db_board
 
 
+@app.post("/api/boards/{board_id}/join", response_model=JoinResponse)
+def join_board(board_id: int, join_request: UserCreate, db: Session = Depends(get_db)):
+    board = db.query(Board).filter(Board.id == board_id).first()
+    if not board:
+        raise HTTPException(status_code=404, detail="Board not found")
+    
+    # Check if this user name already exists in this board
+    existing_user = db.query(User).filter(User.board_id == board_id, User.name == join_request.name).first()
+    if existing_user:
+        raise HTTPException(status_code=400, detail="Name already taken in this board")
+        
+    # Check if this is the first user
+    user_count = db.query(User).filter(User.board_id == board_id).count()
+    role = "admin" if user_count == 0 else "user"
+    
+    new_user = User(
+        board_id=board_id,
+        name=join_request.name,
+        role=role,
+        session_token=str(uuid.uuid4())
+    )
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+    
+    if role == "admin":
+        board.admin_id = new_user.id
+        db.commit()
+        
+    return {
+        "user": new_user,
+        "session_token": new_user.session_token
+    }
+
+
+@app.get("/api/boards/{board_id}/me", response_model=UserResponse)
+def get_me(board_id: int, current_user: User = Depends(get_current_user)):
+    return current_user
+
+
 @app.get("/api/boards/{board_id}", response_model=BoardResponse)
 def get_board(board_id: int, db: Session = Depends(get_db)):
     board = db.query(Board).filter(Board.id == board_id).first()
@@ -200,7 +272,9 @@ def get_columns(board_id: int, db: Session = Depends(get_db)):
 
 
 @app.post("/api/boards/{board_id}/columns", response_model=ColumnResponse, status_code=201)
-async def create_column(board_id: int, column: ColumnCreate, db: Session = Depends(get_db)):
+async def create_column(board_id: int, column: ColumnCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Only the admin can create columns")
     if not db.query(Board).filter(Board.id == board_id).first():
         raise HTTPException(status_code=404, detail="Board not found")
     
@@ -217,6 +291,43 @@ async def create_column(board_id: int, column: ColumnCreate, db: Session = Depen
     return db_column
 
 
+@app.put("/api/boards/{board_id}/columns/{column_id}", response_model=ColumnResponse)
+async def update_column(board_id: int, column_id: int, column_update: ColumnCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Only the admin can update columns")
+        
+    db_column = db.query(BoardColumn).filter(BoardColumn.id == column_id, BoardColumn.board_id == board_id).first()
+    if not db_column:
+        raise HTTPException(status_code=404, detail="Column not found")
+        
+    db_column.name = column_update.name
+    db.commit()
+    db.refresh(db_column)
+    
+    col_data = jsonable_encoder(ColumnResponse.model_validate(db_column))
+    await manager.broadcast(board_id, {"type": "column_updated", "data": col_data})
+    return db_column
+
+
+@app.delete("/api/boards/{board_id}/columns/{column_id}", status_code=204)
+async def delete_column(board_id: int, column_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Only the admin can delete columns")
+        
+    db_column = db.query(BoardColumn).filter(BoardColumn.id == column_id, BoardColumn.board_id == board_id).first()
+    if not db_column:
+        raise HTTPException(status_code=404, detail="Column not found")
+        
+    # Delete associated cards
+    db.query(Card).filter(Card.column_id == column_id).delete()
+    
+    db.delete(db_column)
+    db.commit()
+    
+    await manager.broadcast(board_id, {"type": "column_deleted", "data": {"id": column_id}})
+    return None
+
+
 @app.get("/api/boards/{board_id}/cards", response_model=List[CardResponse])
 def get_cards(board_id: int, db: Session = Depends(get_db)):
     if not db.query(Board).filter(Board.id == board_id).first():
@@ -231,7 +342,7 @@ def get_cards(board_id: int, db: Session = Depends(get_db)):
 
 
 @app.post("/api/boards/{board_id}/cards", response_model=CardResponse, status_code=201)
-async def create_card(board_id: int, card: CardCreate, db: Session = Depends(get_db)):
+async def create_card(board_id: int, card: CardCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     if not db.query(Board).filter(Board.id == board_id).first():
         raise HTTPException(status_code=404, detail="Board not found")
     column = (
@@ -244,7 +355,7 @@ async def create_card(board_id: int, card: CardCreate, db: Session = Depends(get
     db_card = Card(
         column_id=card.column_id,
         content=card.content,
-        author=card.author,
+        author_id=current_user.id,
         created_at=datetime.now(timezone.utc),
     )
     db.add(db_card)

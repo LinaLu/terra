@@ -27,6 +27,7 @@ def test_get_board_by_id(client):
         "name": "My Board",
         "short_code": None,
         "link_expires_at": None,
+        "admin_id": None,
     }
 
 

@@ -13,8 +13,13 @@ test.describe('Dynamic Columns', () => {
     // Click the board link to go to the board page
     await page.getByRole('link', { name: boardName }).click();
 
+    // Handle Join Board modal
+    await expect(page.getByRole('heading', { name: 'Join ' + boardName })).toBeVisible();
+    await page.fill('input[placeholder="Your name"]', 'E2E Tester');
+    await page.click('button:has-text("Join Board")');
+
     // Verify we are on the board page
-    await expect(page.getByRole('heading', { name: boardName })).toBeVisible();
+    await expect(page.getByRole('heading', { name: boardName, exact: true })).toBeVisible();
 
     // Check default columns are not present
     await expect(page.getByRole('heading', { name: 'Good' })).not.toBeVisible();
@@ -38,9 +43,6 @@ test.describe('Dynamic Columns', () => {
     // there is only one "What's on your mind?" input visible.
     const cardInput = page.getByPlaceholder('What\'s on your mind?').first();
     await cardInput.fill('Is this working?');
-    
-    const authorInput = page.getByPlaceholder('Your name').first();
-    await authorInput.fill('E2E Tester');
     
     const submitCardButton = page.getByRole('button', { name: 'Add card' }).first();
     await submitCardButton.click();

@@ -1,13 +1,16 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
-import { boardApi, columnApi, cardApi, Board, Column, Card } from '../services/api';
+import { boardApi, columnApi, cardApi, Board, Column, Card, User, getBoardToken } from '../services/api';
 import ColumnComponent from './Column';
 import ColumnForm from './ColumnForm';
+import JoinBoardModal from './JoinBoardModal';
 import { useBoardWebSocket } from '../hooks/useBoardWebSocket';
 
 export default function BoardView() {
   const { code } = useParams<{ code: string }>();
   const [board, setBoard] = useState<Board | null>(null);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [needsJoin, setNeedsJoin] = useState(false);
   const [columns, setColumns] = useState<Column[]>([]);
   const [cardsByColumn, setCardsByColumn] = useState<Record<number, Card[]>>({});
   const [loading, setLoading] = useState(true);
@@ -19,6 +22,20 @@ export default function BoardView() {
       try {
         const boardData = await boardApi.getBoardByCode(code);
         setBoard(boardData);
+
+        const token = getBoardToken(boardData.id);
+        if (token) {
+          try {
+            const user = await boardApi.getMe(boardData.id);
+            setCurrentUser(user);
+            setNeedsJoin(false);
+          } catch {
+            setNeedsJoin(true);
+          }
+        } else {
+          setNeedsJoin(true);
+        }
+
         const [columnsData, cardsData] = await Promise.all([
           columnApi.getColumns(boardData.id),
           cardApi.getCards(boardData.id),
@@ -45,6 +62,21 @@ export default function BoardView() {
     setColumns((prev) => {
       if (prev.some((c) => c.id === column.id)) return prev;
       return [...prev, column].sort((a, b) => a.position - b.position);
+    });
+  }, []);
+
+  const handleColumnUpdated = useCallback((updatedColumn: Column) => {
+    setColumns((prev) =>
+      prev.map((c) => (c.id === updatedColumn.id ? updatedColumn : c))
+    );
+  }, []);
+
+  const handleColumnDeleted = useCallback((columnId: number) => {
+    setColumns((prev) => prev.filter((c) => c.id !== columnId));
+    setCardsByColumn((prev) => {
+      const next = { ...prev };
+      delete next[columnId];
+      return next;
     });
   }, []);
 
@@ -93,7 +125,15 @@ export default function BoardView() {
     });
   }, []);
 
-  useBoardWebSocket(board?.id, handleCardCreated, handleCardUpdated, handleColumnCreated, handleCardDeleted);
+  useBoardWebSocket(
+    board?.id,
+    handleCardCreated,
+    handleCardUpdated,
+    handleColumnCreated,
+    handleCardDeleted,
+    handleColumnUpdated,
+    handleColumnDeleted
+  );
 
   if (expired) {
     return (
@@ -108,11 +148,30 @@ export default function BoardView() {
     return <div style={{ padding: '20px' }}>Loading...</div>;
   }
 
+  const isAdmin = currentUser?.role === 'admin';
+
   return (
     <div style={{ padding: '20px' }}>
-      <p style={{ color: '#666', margin: '0 0 12px 0', fontSize: '0.9rem' }}>
-        You are viewing this board via a shared link.
-      </p>
+      {needsJoin && board && (
+        <JoinBoardModal
+          boardId={board.id}
+          boardName={board.name}
+          onJoined={(user) => {
+            setCurrentUser(user);
+            setNeedsJoin(false);
+          }}
+        />
+      )}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+        <p style={{ color: '#666', margin: 0, fontSize: '0.9rem' }}>
+          You are viewing this board via a shared link.
+        </p>
+        {currentUser && (
+          <span style={{ fontSize: '0.9rem', color: '#555' }}>
+            Logged in as <strong>{currentUser.name}</strong> ({currentUser.role})
+          </span>
+        )}
+      </div>
       <h2 style={{ margin: '8px 0 20px 0' }}>{board.name}</h2>
       <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start', overflowX: 'auto', paddingBottom: '16px' }}>
         {columns.map((col) => (
@@ -121,12 +180,15 @@ export default function BoardView() {
             column={col}
             cards={cardsByColumn[col.id] ?? []}
             boardId={board.id}
+            isAdmin={isAdmin}
             onCardCreated={handleCardCreated}
             onCardUpdated={handleCardUpdated}
             onCardDeleted={handleCardDeleted}
+            onColumnUpdated={handleColumnUpdated}
+            onColumnDeleted={handleColumnDeleted}
           />
         ))}
-        <ColumnForm boardId={board.id} onColumnCreated={handleColumnCreated} />
+        {isAdmin && <ColumnForm boardId={board.id} onColumnCreated={handleColumnCreated} />}
       </div>
     </div>
   );

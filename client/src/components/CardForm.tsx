@@ -10,24 +10,21 @@ interface CardFormProps {
 export default function CardForm({ boardId, columnId, onCardCreated }: CardFormProps) {
   const [open, setOpen] = useState(false);
   const [content, setContent] = useState('');
-  const [author, setAuthor] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!content.trim() || !author.trim()) return;
+    if (!content.trim()) return;
     try {
       setSubmitting(true);
       const newCard = await cardApi.createCard(boardId, {
         column_id: columnId,
         content: content.trim(),
-        author: author.trim(),
       });
       onCardCreated(newCard);
       setError(null);
       setContent('');
-      setAuthor('');
       setOpen(false);
     } catch (err) {
       console.error('Failed to create card:', err);
@@ -40,7 +37,6 @@ export default function CardForm({ boardId, columnId, onCardCreated }: CardFormP
   const handleCancel = () => {
     setOpen(false);
     setContent('');
-    setAuthor('');
     setError(null);
   };
 
@@ -64,13 +60,6 @@ export default function CardForm({ boardId, columnId, onCardCreated }: CardFormP
         rows={3}
         style={{ width: '100%', padding: '6px', fontSize: '0.875rem', border: '1px solid #ccc', borderRadius: '4px', resize: 'vertical', boxSizing: 'border-box' }}
       />
-      <input
-        type="text"
-        value={author}
-        onChange={(e) => setAuthor(e.target.value)}
-        placeholder="Your name"
-        style={{ width: '100%', padding: '6px', fontSize: '0.875rem', border: '1px solid #ccc', borderRadius: '4px', boxSizing: 'border-box' }}
-      />
       {error && (
         <div style={{ color: '#721c24', backgroundColor: '#f8d7da', border: '1px solid #f5c6cb', padding: '6px', borderRadius: '4px', fontSize: '0.875rem' }}>
           {error}
@@ -79,7 +68,7 @@ export default function CardForm({ boardId, columnId, onCardCreated }: CardFormP
       <div style={{ display: 'flex', gap: '6px' }}>
         <button
           type="submit"
-          disabled={submitting || !content.trim() || !author.trim()}
+          disabled={submitting || !content.trim()}
           style={{ flex: 1, padding: '6px', backgroundColor: submitting ? '#ccc' : '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: submitting ? 'not-allowed' : 'pointer', fontSize: '0.875rem' }}
         >
           {submitting ? 'Adding...' : 'Add card'}

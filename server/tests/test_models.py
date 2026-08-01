@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from database import Board, BoardColumn, Card
+from database import Board, BoardColumn, Card, User
 from tests.conftest import TestingSessionLocal
 
 
@@ -24,13 +24,19 @@ def test_card_model():
     board = Board(name="Retro 1")
     db.add(board)
     db.flush()
+
+    user = User(board_id=board.id, name="Alice", role="admin", session_token="token-123")
+    db.add(user)
+    db.flush()
+
     col = BoardColumn(board_id=board.id, name="Good", position=1)
     db.add(col)
     db.flush()
+
     card = Card(
         column_id=col.id,
         content="Deployments are fast",
-        author="Alice",
+        author_id=user.id,
         created_at=datetime.now(timezone.utc),
     )
     db.add(card)
