@@ -2,6 +2,7 @@
 
 import os
 import uuid
+from datetime import datetime, timezone
 from sqlalchemy import create_engine, Column, Integer, String, ForeignKey, DateTime
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
@@ -57,6 +58,39 @@ class BoardColumn(Base):
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     board_id = Column(Integer, ForeignKey("boards.id"), nullable=False)
     name = Column(String, nullable=False)
+    color = Column(String, nullable=True)
+    icon = Column(String, nullable=True)
+    position = Column(Integer, nullable=False)
+
+
+# Template model
+class Template(Base):
+    """Predefined board template, defining a fixed set of columns."""
+
+    __tablename__ = "templates"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    name = Column(String, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+    columns = relationship(
+        "TemplateColumn",
+        order_by="TemplateColumn.position",
+        cascade="all, delete-orphan",
+    )
+
+
+# TemplateColumn model
+class TemplateColumn(Base):
+    """Column belonging to a template."""
+
+    __tablename__ = "template_columns"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    template_id = Column(Integer, ForeignKey("templates.id"), nullable=False)
+    name = Column(String, nullable=False)
+    color = Column(String, nullable=True)
+    icon = Column(String, nullable=True)
     position = Column(Integer, nullable=False)
 
 
@@ -91,6 +125,59 @@ def get_db():
         db.close()
 
 
+DEFAULT_TEMPLATES = [
+    (
+        "Basic Retro",
+        [
+            {"name": "Went Well", "color": "#86efac", "icon": "smile"},
+            {"name": "To Improve", "color": "#fca5a5", "icon": "frown"},
+            {"name": "Action Items", "color": "#93c5fd", "icon": "lightbulb"},
+        ],
+    ),
+    (
+        "Start Stop Continue",
+        [
+            {"name": "Start", "color": "#86efac", "icon": "play"},
+            {"name": "Stop", "color": "#fca5a5", "icon": "octagon-x"},
+            {"name": "Continue", "color": "#93c5fd", "icon": "repeat"},
+        ],
+    ),
+    (
+        "4Ls",
+        [
+            {"name": "Liked", "color": "#86efac", "icon": "thumbs-up"},
+            {"name": "Learned", "color": "#93c5fd", "icon": "lightbulb"},
+            {"name": "Lacked", "color": "#fdba74", "icon": "alert-triangle"},
+            {"name": "Longed For", "color": "#d8b4fe", "icon": "star"},
+        ],
+    ),
+]
+
+
+def seed_default_templates(db):
+    """Insert the default templates if the templates table is empty."""
+    if db.query(Template).first():
+        return
+    for name, columns in DEFAULT_TEMPLATES:
+        template = Template(name=name)
+        db.add(template)
+        db.flush()
+        for position, col in enumerate(columns, start=1):
+            db.add(TemplateColumn(
+                template_id=template.id,
+                name=col["name"],
+                color=col.get("color"),
+                icon=col.get("icon"),
+                position=position,
+            ))
+    db.commit()
+
+
 def init_db():
-    """Initialize database tables."""
+    """Initialize database tables and seed default templates."""
     Base.metadata.create_all(bind=engine)
+    db = SessionLocal()
+    try:
+        seed_default_templates(db)
+    finally:
+        db.close()

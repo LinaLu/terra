@@ -1,8 +1,10 @@
 import pytest
 
+from tests.conftest import create_board
+
 
 def test_join_board_first_user_is_admin(client):
-    board = client.post("/api/boards", json={"name": "Retro 1"}).json()
+    board = create_board(client, name="Retro 1")
     board_id = board["id"]
 
     res = client.post(f"/api/boards/{board_id}/join", json={"name": "Alice"})
@@ -15,7 +17,7 @@ def test_join_board_first_user_is_admin(client):
 
 
 def test_join_board_second_user_is_regular_user(client):
-    board_id = client.post("/api/boards", json={"name": "Retro 1"}).json()["id"]
+    board_id = create_board(client, name="Retro 1")["id"]
 
     alice = client.post(f"/api/boards/{board_id}/join", json={"name": "Alice"}).json()
     assert alice["user"]["role"] == "admin"
@@ -25,7 +27,7 @@ def test_join_board_second_user_is_regular_user(client):
 
 
 def test_join_board_duplicate_name_rejected(client):
-    board_id = client.post("/api/boards", json={"name": "Retro 1"}).json()["id"]
+    board_id = create_board(client, name="Retro 1")["id"]
 
     res1 = client.post(f"/api/boards/{board_id}/join", json={"name": "Alice"})
     assert res1.status_code == 200
@@ -36,8 +38,8 @@ def test_join_board_duplicate_name_rejected(client):
 
 
 def test_join_board_same_name_different_board_allowed(client):
-    board1_id = client.post("/api/boards", json={"name": "Retro 1"}).json()["id"]
-    board2_id = client.post("/api/boards", json={"name": "Retro 2"}).json()["id"]
+    board1_id = create_board(client, name="Retro 1")["id"]
+    board2_id = create_board(client, name="Retro 2")["id"]
 
     res1 = client.post(f"/api/boards/{board1_id}/join", json={"name": "Alice"})
     assert res1.status_code == 200
@@ -47,7 +49,7 @@ def test_join_board_same_name_different_board_allowed(client):
 
 
 def test_get_me(client):
-    board_id = client.post("/api/boards", json={"name": "Retro"}).json()["id"]
+    board_id = create_board(client, name="Retro")["id"]
 
     join_data = client.post(f"/api/boards/{board_id}/join", json={"name": "Alice"}).json()
     token = join_data["session_token"]
@@ -73,88 +75,20 @@ def test_get_me(client):
     assert bad_token_res.status_code == 401
 
 
-def test_column_admin_authorization(client):
-    board_id = client.post("/api/boards", json={"name": "Retro"}).json()["id"]
-
-    alice = client.post(f"/api/boards/{board_id}/join", json={"name": "Alice"}).json()
-    admin_token = alice["session_token"]
-
-    bob = client.post(f"/api/boards/{board_id}/join", json={"name": "Bob"}).json()
-    user_token = bob["session_token"]
-
-    # 1. Non-admin attempts to create column -> 403
-    col_res_user = client.post(
-        f"/api/boards/{board_id}/columns",
-        json={"name": "Good"},
-        headers={"Authorization": f"Bearer {user_token}"},
-    )
-    assert col_res_user.status_code == 403
-
-    # 2. Admin creates column -> 201
-    col_res_admin = client.post(
-        f"/api/boards/{board_id}/columns",
-        json={"name": "Good"},
-        headers={"Authorization": f"Bearer {admin_token}"},
-    )
-    assert col_res_admin.status_code == 201
-    col_id = col_res_admin.json()["id"]
-
-    # 3. Non-admin attempts to update column -> 403
-    update_res_user = client.put(
-        f"/api/boards/{board_id}/columns/{col_id}",
-        json={"name": "Went Well"},
-        headers={"Authorization": f"Bearer {user_token}"},
-    )
-    assert update_res_user.status_code == 403
-
-    # 4. Admin updates column -> 200
-    update_res_admin = client.put(
-        f"/api/boards/{board_id}/columns/{col_id}",
-        json={"name": "Went Well"},
-        headers={"Authorization": f"Bearer {admin_token}"},
-    )
-    assert update_res_admin.status_code == 200
-    assert update_res_admin.json()["name"] == "Went Well"
-
-    # 5. Non-admin attempts to delete column -> 403
-    del_res_user = client.delete(
-        f"/api/boards/{board_id}/columns/{col_id}",
-        headers={"Authorization": f"Bearer {user_token}"},
-    )
-    assert del_res_user.status_code == 403
-
-    # 6. Admin deletes column -> 204
-    del_res_admin = client.delete(
-        f"/api/boards/{board_id}/columns/{col_id}",
-        headers={"Authorization": f"Bearer {admin_token}"},
-    )
-    assert del_res_admin.status_code == 204
-
-
 def test_card_creation_author_from_session(client):
-    board_id = client.post("/api/boards", json={"name": "Retro"}).json()["id"]
-
-    alice = client.post(f"/api/boards/{board_id}/join", json={"name": "Alice"}).json()
-    admin_token = alice["session_token"]
+    board_id = create_board(client, name="Retro", columns=["Good"])["id"]
 
     bob = client.post(f"/api/boards/{board_id}/join", json={"name": "Bob"}).json()
     user_token = bob["session_token"]
 
-    # Admin creates column
-    col_id = client.post(
-        f"/api/boards/{board_id}/columns",
-        json={"name": "Good"},
-        headers={"Authorization": f"Bearer {admin_token}"},
-    ).json()["id"]
+    col_id = client.get(f"/api/boards/{board_id}/columns").json()[0]["id"]
 
-    # Unauthenticated card creation -> 401
     unauth_res = client.post(
         f"/api/boards/{board_id}/cards",
         json={"column_id": col_id, "content": "Hello"},
     )
     assert unauth_res.status_code == 401
 
-    # Bob (regular user) creates card -> 201, author = Bob
     bob_card_res = client.post(
         f"/api/boards/{board_id}/cards",
         json={"column_id": col_id, "content": "Great teamwork!"},

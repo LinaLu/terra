@@ -3,7 +3,6 @@ import { useParams } from 'react-router-dom';
 import { DragDropContext, DropResult } from '@hello-pangea/dnd';
 import { boardApi, columnApi, cardApi, Board, Column, Card, User, getBoardToken } from '../services/api';
 import ColumnComponent from './Column';
-import ColumnForm from './ColumnForm';
 import JoinBoardModal from './JoinBoardModal';
 import { useBoardWebSocket } from '../hooks/useBoardWebSocket';
 
@@ -58,28 +57,6 @@ export default function BoardView() {
     };
     load();
   }, [code]);
-
-  const handleColumnCreated = useCallback((column: Column) => {
-    setColumns((prev) => {
-      if (prev.some((c) => c.id === column.id)) return prev;
-      return [...prev, column].sort((a, b) => a.position - b.position);
-    });
-  }, []);
-
-  const handleColumnUpdated = useCallback((updatedColumn: Column) => {
-    setColumns((prev) =>
-      prev.map((c) => (c.id === updatedColumn.id ? updatedColumn : c))
-    );
-  }, []);
-
-  const handleColumnDeleted = useCallback((columnId: number) => {
-    setColumns((prev) => prev.filter((c) => c.id !== columnId));
-    setCardsByColumn((prev) => {
-      const next = { ...prev };
-      delete next[columnId];
-      return next;
-    });
-  }, []);
 
   const handleCardCreated = useCallback((card: Card) => {
     setCardsByColumn((prev) => {
@@ -161,10 +138,7 @@ export default function BoardView() {
     board?.id,
     handleCardCreated,
     handleCardUpdated,
-    handleColumnCreated,
     handleCardDeleted,
-    handleColumnUpdated,
-    handleColumnDeleted,
     handleCardsReordered
   );
 
@@ -243,8 +217,6 @@ export default function BoardView() {
     return <div className="p-5">Loading...</div>;
   }
 
-  const isAdmin = currentUser?.role === 'admin';
-
   return (
     <div className="p-5">
       {needsJoin && board && (
@@ -270,22 +242,18 @@ export default function BoardView() {
       <h2 className="my-2 mb-5 text-2xl font-bold">{board.name}</h2>
       
       <DragDropContext onDragEnd={onDragEnd}>
-        <div className="flex gap-4 items-start overflow-x-auto pb-4">
+        <div className="flex gap-6 items-start overflow-x-auto pb-4">
           {columns.map((col) => (
             <ColumnComponent
               key={col.id}
               column={col}
               cards={cardsByColumn[col.id] ?? []}
               boardId={board.id}
-              isAdmin={isAdmin}
               onCardCreated={handleCardCreated}
               onCardUpdated={handleCardUpdated}
               onCardDeleted={handleCardDeleted}
-              onColumnUpdated={handleColumnUpdated}
-              onColumnDeleted={handleColumnDeleted}
             />
           ))}
-          {isAdmin && <ColumnForm boardId={board.id} onColumnCreated={handleColumnCreated} />}
         </div>
       </DragDropContext>
     </div>

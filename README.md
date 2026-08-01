@@ -130,7 +130,7 @@ When the server is running, interactive API documentation is available at:
 
 - `GET /api/boards` - Get all boards
 - `POST /api/boards` - Create a new board
-  - Request body: `{"name": "Board Name"}`
+  - Request body: `{"name": "Board Name", "template_id": 1}`
 
 ## Testing
 

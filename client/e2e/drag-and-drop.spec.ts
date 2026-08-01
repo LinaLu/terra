@@ -3,33 +3,43 @@ import { test, expect } from '@playwright/test';
 test('drag and drop 3 cards to reorder them', async ({ page }) => {
   await page.goto('/');
 
-  // Create a unique board
+  // Create a unique board using the "Basic Retro" template
   const uniqueBoardName = `DnD Test Board ${Date.now()}`;
   await page.fill('input[placeholder="Enter board name"]', uniqueBoardName);
+  await page.getByLabel(/Basic Retro/).check();
   await page.click('button:has-text("Create Board")');
 
   // Navigate to the board
   await page.click(`text=${uniqueBoardName}`);
+
+  // Handle Join Board modal (a fixed, full-screen overlay added by the auth
+  // feature; it blocks all pointer events on the board underneath until
+  // dismissed, so it must be handled before interacting with columns/cards)
+  await expect(page.getByRole('heading', { name: 'Join ' + uniqueBoardName })).toBeVisible({ timeout: 10000 });
+  await page.fill('input[placeholder="Your name"]', 'Tester');
+  await page.click('button:has-text("Join Board")');
+
   await page.waitForSelector(`h2:has-text("${uniqueBoardName}")`);
 
-  // Add a column
-  await page.click('button:has-text("+ Add a column")');
-  await page.fill('input[placeholder="Column name"]', 'To Do');
-  await page.click('button:has-text("Add column")');
-  await expect(page.locator('h3:has-text("To Do")').first()).toBeVisible();
+  await expect(page.locator('h3:has-text("Went Well")').first()).toBeVisible();
 
   // Wait a bit and take a screenshot to debug
   await page.waitForTimeout(500);
   await page.screenshot({ path: 'debug-column.png' });
 
   // Add 3 cards
-  const column = page.locator('div', { has: page.locator('h3', { hasText: 'To Do' }) }).first();
+  // Scoped to div.flex-1 (the column's own root element) rather than a bare
+  // `div:has(h3)`, which also matches the outer flex wrapper around all
+  // columns once the board has more than one column (template boards do).
+  const column = page.locator('div.flex-1', { has: page.locator('h3', { hasText: 'Went Well' }) }).first();
 
   const addCard = async (content: string) => {
     // Specifically target the button inside CardForm
+    // Note: CardForm no longer has a per-card "Your name" input — authorship
+    // now comes from the joined session (handled above via the Join Board
+    // modal), so that fill step from the original test has been dropped.
     await column.locator('button', { hasText: '+ Add a card' }).first().click();
     await column.locator('textarea[placeholder="What\'s on your mind?"]').first().fill(content);
-    await column.locator('input[placeholder="Your name"]').first().fill('Tester');
     await column.locator('button:has-text("Add card")').first().click();
     // Wait for it to appear
     await expect(page.locator(`p:has-text("${content}")`).first()).toBeVisible();

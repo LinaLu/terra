@@ -1,0 +1,40 @@
+import {
+  Smile,
+  Frown,
+  Lightbulb,
+  TriangleAlert,
+  ThumbsUp,
+  ThumbsDown,
+  Rocket,
+  Target,
+  Flag,
+  Star,
+  HelpCircle,
+  Zap,
+  Play,
+  Repeat,
+  OctagonX,
+  GraduationCap,
+  type LucideIcon,
+} from 'lucide-react';
+
+export const COLUMN_ICONS: Record<string, LucideIcon> = {
+  smile: Smile,
+  frown: Frown,
+  lightbulb: Lightbulb,
+  'alert-triangle': TriangleAlert,
+  'thumbs-up': ThumbsUp,
+  'thumbs-down': ThumbsDown,
+  rocket: Rocket,
+  target: Target,
+  flag: Flag,
+  star: Star,
+  'help-circle': HelpCircle,
+  zap: Zap,
+  play: Play,
+  repeat: Repeat,
+  'octagon-x': OctagonX,
+  'graduation-cap': GraduationCap,
+};
+
+export const COLUMN_ICON_OPTIONS = Object.keys(COLUMN_ICONS);

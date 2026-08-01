@@ -54,3 +54,16 @@ def client():
         with TestClient(app) as c:
             yield c
     app.dependency_overrides.clear()
+
+
+def create_template(client, name="Test Template", columns=("Good",)):
+    """Create a template via the API and return its id."""
+    response = client.post("/api/templates", json={"name": name, "columns": [{"name": c} for c in columns]})
+    return response.json()["id"]
+
+
+def create_board(client, name="Test Board", columns=("Good",)):
+    """Create a template and a board from it via the API. Returns the board dict."""
+    template_id = create_template(client, columns=columns)
+    response = client.post("/api/boards", json={"name": name, "template_id": template_id})
+    return response.json()
