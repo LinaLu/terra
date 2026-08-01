@@ -9,6 +9,7 @@ from sqlalchemy.exc import OperationalError
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 
 from database import get_db, init_db, SessionLocal, Board, BoardColumn, Card
 from links import create_board_link
@@ -22,13 +23,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-_DEFAULT_COLUMNS = [
-    {"name": "Good", "position": 1},
-    {"name": "Bad", "position": 2},
-    {"name": "Actions", "position": 3},
-]
-
 
 # --- WebSocket Manager ---
 
@@ -82,6 +76,10 @@ class LinkResponse(BaseModel):
     link_expires_at: datetime
 
 
+class ColumnCreate(BaseModel):
+    name: str
+
+
 class ColumnResponse(BaseModel):
     id: int
     board_id: int
@@ -115,25 +113,6 @@ class CardResponse(BaseModel):
 @app.on_event("startup")
 def startup_event():
     init_db()
-    db = SessionLocal()
-    # Seed default columns for boards that pre-date this feature (i.e. have no columns yet).
-    try:
-        boards_without_columns = (
-            db.query(Board)
-            .outerjoin(BoardColumn, Board.id == BoardColumn.board_id)
-            .filter(BoardColumn.id == None)  # noqa: E711
-            .all()
-        )
-        for board in boards_without_columns:
-            for col in _DEFAULT_COLUMNS:
-                db.add(BoardColumn(board_id=board.id, name=col["name"], position=col["position"]))
-        if boards_without_columns:
-            db.commit()
-    except OperationalError:
-        # Tables may not exist yet if init_db was skipped (e.g. in tests); safe to ignore.
-        db.rollback()
-    finally:
-        db.close()
     print("Database initialized successfully")
 
 
@@ -167,9 +146,6 @@ def get_boards(db: Session = Depends(get_db)):
 def create_board(board: BoardCreate, db: Session = Depends(get_db)):
     db_board = Board(name=board.name)
     db.add(db_board)
-    db.flush()
-    for col in _DEFAULT_COLUMNS:
-        db.add(BoardColumn(board_id=db_board.id, name=col["name"], position=col["position"]))
     db.commit()
     db.refresh(db_board)
     return db_board
@@ -217,6 +193,24 @@ def get_columns(board_id: int, db: Session = Depends(get_db)):
         .order_by(BoardColumn.position)
         .all()
     )
+
+
+@app.post("/api/boards/{board_id}/columns", response_model=ColumnResponse, status_code=201)
+async def create_column(board_id: int, column: ColumnCreate, db: Session = Depends(get_db)):
+    if not db.query(Board).filter(Board.id == board_id).first():
+        raise HTTPException(status_code=404, detail="Board not found")
+    
+    max_pos = db.query(func.max(BoardColumn.position)).filter(BoardColumn.board_id == board_id).scalar()
+    new_pos = (max_pos or 0) + 1
+    
+    db_column = BoardColumn(board_id=board_id, name=column.name, position=new_pos)
+    db.add(db_column)
+    db.commit()
+    db.refresh(db_column)
+    
+    col_data = jsonable_encoder(ColumnResponse.model_validate(db_column))
+    await manager.broadcast(board_id, {"type": "column_created", "data": col_data})
+    return db_column
 
 
 @app.get("/api/boards/{board_id}/cards", response_model=List[CardResponse])

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { boardApi, columnApi, cardApi, Board, Column, Card } from '../services/api';
 import ColumnComponent from './Column';
+import ColumnForm from './ColumnForm';
 import { useBoardWebSocket } from '../hooks/useBoardWebSocket';
 
 export default function BoardPage() {
@@ -41,6 +42,13 @@ export default function BoardPage() {
     load();
   }, [boardId]);
 
+  const handleColumnCreated = useCallback((column: Column) => {
+    setColumns((prev) => {
+      if (prev.some((c) => c.id === column.id)) return prev;
+      return [...prev, column].sort((a, b) => a.position - b.position);
+    });
+  }, []);
+
   const handleCardCreated = useCallback((card: Card) => {
     setCardsByColumn((prev) => {
       const existing = prev[card.column_id] ?? [];
@@ -73,7 +81,7 @@ export default function BoardPage() {
     });
   }, []);
 
-  useBoardWebSocket(boardId, handleCardCreated, handleCardUpdated);
+  useBoardWebSocket(boardId, handleCardCreated, handleCardUpdated, handleColumnCreated);
 
   if (loading) {
     return <div style={{ padding: '20px' }}>Loading...</div>;
@@ -94,7 +102,7 @@ export default function BoardPage() {
     <div style={{ padding: '20px' }}>
       <Link to="/" style={{ color: '#007bff', textDecoration: 'none', fontSize: '0.9rem' }}>← Back to boards</Link>
       <h2 style={{ margin: '8px 0 20px 0' }}>{board?.name}</h2>
-      <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
+      <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start', overflowX: 'auto', paddingBottom: '16px' }}>
         {columns.map((col) => (
           <ColumnComponent
             key={col.id}
@@ -105,6 +113,7 @@ export default function BoardPage() {
             onCardUpdated={handleCardUpdated}
           />
         ))}
+        <ColumnForm boardId={boardId} onColumnCreated={handleColumnCreated} />
       </div>
     </div>
   );
