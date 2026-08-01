@@ -19,3 +19,8 @@ The application is structured as a frontend/backend split with a relational data
   - E2E tests: Playwright
 - **Database Migrations**: Schema migrations are currently implemented in the ORM and executed manually (no automated migration tool like Alembic yet).
 
+## GitHub Operations
+
+- All `gh` operations MUST be prefixed with `GH_CONFIG_DIR=.config/gh_auth` (e.g. `GH_CONFIG_DIR=.config/gh_auth gh pr create`).
+- Pull Requests should be created using `gh` with a lean, concise description.
+

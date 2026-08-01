@@ -44,3 +44,6 @@ postgres_data/
 playwright-report/
 test-results/
 blob-report/
+
+# Local configuration
+.config/
