@@ -14,7 +14,13 @@ test('card CRUD operations: create, update, delete', async ({ page }) => {
   // Wait for navigation to the board page (the heading should appear)
   await expect(page.getByRole('heading', { name: 'CRUD Test Board' })).toBeVisible({ timeout: 10000 });
 
-  // 3. Create a new card in the first column (assuming "Good" is the first column)
+  // Create a new column before adding cards since boards start empty
+  await page.getByRole('button', { name: '+ Add a column' }).click();
+  await page.getByPlaceholder('Column name').fill('Good');
+  await page.getByRole('button', { name: 'Add column' }).click();
+  await expect(page.getByRole('heading', { name: 'Good' })).toBeVisible();
+
+  // 3. Create a new card in the first column
   const firstColumn = page.locator('div[style*="flex: 1"]').filter({ hasText: 'Good' }).first();
   await firstColumn.getByRole('button', { name: '+ Add a card' }).click();
   await firstColumn.locator('textarea[placeholder="What\'s on your mind?"]').fill('Test card content');
