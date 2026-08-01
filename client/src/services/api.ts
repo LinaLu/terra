@@ -42,6 +42,7 @@ export interface Card {
   content: string;
   author: string;
   votes: number;
+  position: number;
   created_at: string;
 }
 
@@ -57,6 +58,15 @@ export interface CreateCardRequest {
   column_id: number;
   content: string;
   author: string;
+  position?: number;
+}
+
+export interface ReorderCardsRequest {
+  cards: {
+    id: number;
+    column_id: number;
+    position: number;
+  }[];
 }
 
 export interface UpdateCardRequest {
@@ -127,6 +137,9 @@ export const cardApi = {
   downvoteCard: async (boardId: number, cardId: number): Promise<Card> => {
     const response = await api.post<Card>(`/api/boards/${boardId}/cards/${cardId}/downvote`);
     return response.data;
+  },
+  reorderCards: async (boardId: number, request: ReorderCardsRequest): Promise<void> => {
+    await api.put(`/api/boards/${boardId}/cards/reorder`, request);
   },
 };
 

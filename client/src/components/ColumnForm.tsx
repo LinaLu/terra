@@ -40,10 +40,10 @@ export default function ColumnForm({ boardId, onColumnCreated }: ColumnFormProps
 
   if (!open) {
     return (
-      <div style={{ flex: 1, minWidth: '240px', display: 'flex', flexDirection: 'column' }}>
+      <div className="flex-1 min-w-[240px] flex flex-col">
         <button
           onClick={() => setOpen(true)}
-          style={{ width: '100%', padding: '12px', backgroundColor: 'transparent', border: '1px dashed #aaa', borderRadius: '4px', cursor: 'pointer', color: '#666', fontSize: '1rem' }}
+          className="w-full p-3 bg-transparent border border-dashed border-gray-400 rounded cursor-pointer text-gray-600 text-base hover:bg-gray-50"
         >
           + Add a column
         </button>
@@ -52,32 +52,34 @@ export default function ColumnForm({ boardId, onColumnCreated }: ColumnFormProps
   }
 
   return (
-    <div style={{ flex: 1, minWidth: '240px', display: 'flex', flexDirection: 'column', border: '1px solid #ddd', borderRadius: '4px', padding: '12px', backgroundColor: '#f9f9f9', height: 'fit-content' }}>
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+    <div className="flex-1 min-w-[240px] flex flex-col border border-gray-300 rounded p-3 bg-gray-50 h-fit">
+      <form onSubmit={handleSubmit} className="flex flex-col gap-1.5">
         <input
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="Column name"
-          style={{ width: '100%', padding: '6px', fontSize: '0.875rem', border: '1px solid #ccc', borderRadius: '4px', boxSizing: 'border-box' }}
+          className="w-full p-1.5 text-sm border border-gray-300 rounded box-border"
         />
         {error && (
-          <div style={{ color: '#721c24', backgroundColor: '#f8d7da', border: '1px solid #f5c6cb', padding: '6px', borderRadius: '4px', fontSize: '0.875rem' }}>
+          <div className="text-red-800 bg-red-100 border border-red-200 p-1.5 rounded text-sm">
             {error}
           </div>
         )}
-        <div style={{ display: 'flex', gap: '6px' }}>
+        <div className="flex gap-1.5">
           <button
             type="submit"
             disabled={submitting || !name.trim()}
-            style={{ flex: 1, padding: '6px', backgroundColor: submitting ? '#ccc' : '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: submitting ? 'not-allowed' : 'pointer', fontSize: '0.875rem' }}
+            className={`flex-1 p-1.5 text-white border-none rounded text-sm ${
+              submitting || !name.trim() ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 cursor-pointer'
+            }`}
           >
             {submitting ? 'Adding...' : 'Add column'}
           </button>
           <button
             type="button"
             onClick={handleCancel}
-            style={{ flex: 1, padding: '6px', backgroundColor: 'transparent', border: '1px solid #ccc', borderRadius: '4px', cursor: 'pointer', fontSize: '0.875rem' }}
+            className="flex-1 p-1.5 bg-transparent border border-gray-300 rounded cursor-pointer text-sm hover:bg-gray-100"
           >
             Cancel
           </button>

@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
+import { DragDropContext, DropResult } from '@hello-pangea/dnd';
 import { boardApi, columnApi, cardApi, Board, Column, Card } from '../services/api';
 import ColumnComponent from './Column';
 import ColumnForm from './ColumnForm';
@@ -93,41 +94,138 @@ export default function BoardView() {
     });
   }, []);
 
-  useBoardWebSocket(board?.id, handleCardCreated, handleCardUpdated, handleColumnCreated, handleCardDeleted);
+  const handleCardsReordered = useCallback((reorderedCards: Card[]) => {
+    setCardsByColumn((prev) => {
+      const next = { ...prev };
+      
+      // Remove reordered cards from their old locations
+      reorderedCards.forEach((card) => {
+        Object.keys(next).forEach((colId) => {
+          const numColId = Number(colId);
+          if (next[numColId]) {
+            next[numColId] = next[numColId].filter(c => c.id !== card.id);
+          }
+        });
+      });
+
+      // Add them to their new locations
+      reorderedCards.forEach((card) => {
+        if (!next[card.column_id]) {
+          next[card.column_id] = [];
+        }
+        next[card.column_id].push(card);
+      });
+
+      // Sort all columns by position
+      Object.keys(next).forEach((colId) => {
+        next[Number(colId)].sort((a, b) => a.position - b.position);
+      });
+
+      return next;
+    });
+  }, []);
+
+  useBoardWebSocket(board?.id, handleCardCreated, handleCardUpdated, handleColumnCreated, handleCardDeleted, handleCardsReordered);
+
+  const onDragEnd = async (result: DropResult) => {
+    const { destination, source } = result;
+
+    if (!destination || !board) return;
+
+    if (
+      destination.droppableId === source.droppableId &&
+      destination.index === source.index
+    ) {
+      return;
+    }
+
+    const sourceColumnId = Number(source.droppableId);
+    const destColumnId = Number(destination.droppableId);
+
+    setCardsByColumn((prev) => {
+      const sourceCards = Array.from(prev[sourceColumnId] || []);
+      const destCards = sourceColumnId === destColumnId ? sourceCards : Array.from(prev[destColumnId] || []);
+
+      const [movedCard] = sourceCards.splice(source.index, 1);
+      
+      // Optimistically update the card's column ID
+      const updatedCard = { ...movedCard, column_id: destColumnId };
+      destCards.splice(destination.index, 0, updatedCard);
+
+      // Reassign positions for the destination column
+      const updatedDestCards = destCards.map((card, index) => ({
+        ...card,
+        position: index + 1
+      }));
+
+      const newState = {
+        ...prev,
+        [sourceColumnId]: sourceCards,
+        [destColumnId]: updatedDestCards
+      };
+      
+      if (sourceColumnId !== destColumnId) {
+        // Also need to reassign positions for the source column if it changed
+        const updatedSourceCards = sourceCards.map((card, index) => ({
+          ...card,
+          position: index + 1
+        }));
+        newState[sourceColumnId] = updatedSourceCards;
+      }
+
+      // Prepare backend payload
+      const updates = [];
+      if (sourceColumnId !== destColumnId) {
+        updates.push(...newState[sourceColumnId].map(c => ({ id: c.id, column_id: sourceColumnId, position: c.position })));
+      }
+      updates.push(...newState[destColumnId].map(c => ({ id: c.id, column_id: destColumnId, position: c.position })));
+
+      // Fire and forget backend update
+      cardApi.reorderCards(board.id, { cards: updates }).catch(err => {
+        console.error('Failed to reorder cards', err);
+        // We could implement rollback here if it fails
+      });
+
+      return newState;
+    });
+  };
 
   if (expired) {
     return (
-      <div style={{ maxWidth: '800px', margin: '60px auto', padding: '40px', fontFamily: 'Arial, sans-serif', textAlign: 'center' }}>
+      <div className="max-w-[800px] my-[60px] mx-auto p-10 font-sans text-center">
         <h2>This link has expired or is invalid</h2>
-        <p style={{ color: '#666' }}>Ask your team to generate a new link for this board.</p>
+        <p className="text-gray-600">Ask your team to generate a new link for this board.</p>
       </div>
     );
   }
 
   if (loading || !board) {
-    return <div style={{ padding: '20px' }}>Loading...</div>;
+    return <div className="p-5">Loading...</div>;
   }
 
   return (
-    <div style={{ padding: '20px' }}>
-      <p style={{ color: '#666', margin: '0 0 12px 0', fontSize: '0.9rem' }}>
+    <div className="p-5">
+      <p className="text-gray-600 m-0 mb-3 text-sm">
         You are viewing this board via a shared link.
       </p>
-      <h2 style={{ margin: '8px 0 20px 0' }}>{board.name}</h2>
-      <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start', overflowX: 'auto', paddingBottom: '16px' }}>
-        {columns.map((col) => (
-          <ColumnComponent
-            key={col.id}
-            column={col}
-            cards={cardsByColumn[col.id] ?? []}
-            boardId={board.id}
-            onCardCreated={handleCardCreated}
-            onCardUpdated={handleCardUpdated}
-            onCardDeleted={handleCardDeleted}
-          />
-        ))}
-        <ColumnForm boardId={board.id} onColumnCreated={handleColumnCreated} />
-      </div>
+      <h2 className="my-2 mb-5 text-2xl font-bold">{board.name}</h2>
+      
+      <DragDropContext onDragEnd={onDragEnd}>
+        <div className="flex gap-4 items-start overflow-x-auto pb-4">
+          {columns.map((col) => (
+            <ColumnComponent
+              key={col.id}
+              column={col}
+              cards={cardsByColumn[col.id] ?? []}
+              boardId={board.id}
+              onCardCreated={handleCardCreated}
+              onCardUpdated={handleCardUpdated}
+              onCardDeleted={handleCardDeleted}
+            />
+          ))}
+          <ColumnForm boardId={board.id} onColumnCreated={handleColumnCreated} />
+        </div>
+      </DragDropContext>
     </div>
   );
 }
