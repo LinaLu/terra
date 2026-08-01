@@ -55,7 +55,7 @@ function Home() {
   return (
     <>
       {error && (
-        <div style={{ padding: '10px', margin: '20px', backgroundColor: '#f8d7da', color: '#721c24', border: '1px solid #f5c6cb', borderRadius: '4px' }}>
+        <div className="p-2.5 m-5 bg-red-100 text-red-800 border border-red-200 rounded">
           {error}
         </div>
       )}
@@ -67,9 +67,9 @@ function Home() {
 
 function App() {
   return (
-    <div style={{ maxWidth: '1200px', margin: '0 auto', fontFamily: 'Arial, sans-serif' }}>
-      <header style={{ padding: '20px', backgroundColor: '#007bff', color: 'white' }}>
-        <h1 style={{ margin: 0 }}>Terra - Team Retrospective Board</h1>
+    <div className="max-w-[1200px] mx-auto font-sans">
+      <header className="p-5 bg-blue-600 text-white">
+        <h1 className="m-0 text-3xl font-bold">Terra - Team Retrospective Board</h1>
       </header>
       <Routes>
         <Route path="/" element={<Home />} />

@@ -44,7 +44,7 @@ export default function CardForm({ boardId, columnId, onCardCreated }: CardFormP
     return (
       <button
         onClick={() => setOpen(true)}
-        style={{ width: '100%', padding: '8px', marginTop: '8px', backgroundColor: 'transparent', border: '1px dashed #aaa', borderRadius: '4px', cursor: 'pointer', color: '#666', fontSize: '0.875rem' }}
+        className="w-full p-2 mt-2 bg-transparent border border-dashed border-gray-400 rounded cursor-pointer text-gray-600 text-sm hover:bg-gray-50"
       >
         + Add a card
       </button>
@@ -52,31 +52,33 @@ export default function CardForm({ boardId, columnId, onCardCreated }: CardFormP
   }
 
   return (
-    <form onSubmit={handleSubmit} style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+    <form onSubmit={handleSubmit} className="mt-2 flex flex-col gap-1.5">
       <textarea
         value={content}
         onChange={(e) => setContent(e.target.value)}
         placeholder="What's on your mind?"
         rows={3}
-        style={{ width: '100%', padding: '6px', fontSize: '0.875rem', border: '1px solid #ccc', borderRadius: '4px', resize: 'vertical', boxSizing: 'border-box' }}
+        className="w-full p-1.5 text-sm border border-gray-300 rounded resize-y box-border"
       />
       {error && (
-        <div style={{ color: '#721c24', backgroundColor: '#f8d7da', border: '1px solid #f5c6cb', padding: '6px', borderRadius: '4px', fontSize: '0.875rem' }}>
+        <div className="text-red-800 bg-red-100 border border-red-200 p-1.5 rounded text-sm">
           {error}
         </div>
       )}
-      <div style={{ display: 'flex', gap: '6px' }}>
+      <div className="flex gap-1.5">
         <button
           type="submit"
           disabled={submitting || !content.trim()}
-          style={{ flex: 1, padding: '6px', backgroundColor: submitting ? '#ccc' : '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: submitting ? 'not-allowed' : 'pointer', fontSize: '0.875rem' }}
+          className={`flex-1 p-1.5 text-white border-none rounded text-sm ${
+            submitting || !content.trim() ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 cursor-pointer'
+          }`}
         >
           {submitting ? 'Adding...' : 'Add card'}
         </button>
         <button
           type="button"
           onClick={handleCancel}
-          style={{ flex: 1, padding: '6px', backgroundColor: 'transparent', border: '1px solid #ccc', borderRadius: '4px', cursor: 'pointer', fontSize: '0.875rem' }}
+          className="flex-1 p-1.5 bg-transparent border border-gray-300 rounded cursor-pointer text-sm hover:bg-gray-100"
         >
           Cancel
         </button>

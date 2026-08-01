@@ -5,6 +5,7 @@ import ColumnComponent from './Column';
 import ColumnForm from './ColumnForm';
 import JoinBoardModal from './JoinBoardModal';
 import { useBoardWebSocket } from '../hooks/useBoardWebSocket';
+import { DragDropContext } from '@hello-pangea/dnd';
 
 export default function BoardPage() {
   const { id } = useParams<{ id: string }>();
@@ -126,6 +127,34 @@ export default function BoardPage() {
     });
   }, []);
 
+  const handleCardsReordered = useCallback((reorderedCards: Card[]) => {
+    setCardsByColumn((prev) => {
+      const next = { ...prev };
+      
+      reorderedCards.forEach((card) => {
+        Object.keys(next).forEach((colId) => {
+          const numColId = Number(colId);
+          if (next[numColId]) {
+            next[numColId] = next[numColId].filter(c => c.id !== card.id);
+          }
+        });
+      });
+
+      reorderedCards.forEach((card) => {
+        if (!next[card.column_id]) {
+          next[card.column_id] = [];
+        }
+        next[card.column_id].push(card);
+      });
+
+      Object.keys(next).forEach((colId) => {
+        next[Number(colId)].sort((a, b) => a.position - b.position);
+      });
+
+      return next;
+    });
+  }, []);
+
   useBoardWebSocket(
     boardId,
     handleCardCreated,
@@ -133,20 +162,78 @@ export default function BoardPage() {
     handleColumnCreated,
     handleCardDeleted,
     handleColumnUpdated,
-    handleColumnDeleted
+    handleColumnDeleted,
+    handleCardsReordered
   );
 
+  const onDragEnd = async (result: any) => {
+    const { destination, source } = result;
+
+    if (!destination || !board) return;
+
+    if (
+      destination.droppableId === source.droppableId &&
+      destination.index === source.index
+    ) {
+      return;
+    }
+
+    const sourceColumnId = Number(source.droppableId);
+    const destColumnId = Number(destination.droppableId);
+
+    setCardsByColumn((prev) => {
+      const sourceCards = Array.from(prev[sourceColumnId] || []);
+      const destCards = sourceColumnId === destColumnId ? sourceCards : Array.from(prev[destColumnId] || []);
+
+      const [movedCard] = sourceCards.splice(source.index, 1);
+      
+      const updatedCard = { ...movedCard, column_id: destColumnId };
+      destCards.splice(destination.index, 0, updatedCard);
+
+      const updatedDestCards = destCards.map((card, index) => ({
+        ...card,
+        position: index + 1
+      }));
+
+      const newState = {
+        ...prev,
+        [sourceColumnId]: sourceCards,
+        [destColumnId]: updatedDestCards
+      };
+      
+      if (sourceColumnId !== destColumnId) {
+        const updatedSourceCards = sourceCards.map((card, index) => ({
+          ...card,
+          position: index + 1
+        }));
+        newState[sourceColumnId] = updatedSourceCards;
+      }
+
+      const updates = [];
+      if (sourceColumnId !== destColumnId) {
+        updates.push(...newState[sourceColumnId].map(c => ({ id: c.id, column_id: sourceColumnId, position: c.position })));
+      }
+      updates.push(...newState[destColumnId].map(c => ({ id: c.id, column_id: destColumnId, position: c.position })));
+
+      cardApi.reorderCards(board.id, { cards: updates }).catch(err => {
+        console.error('Failed to reorder cards', err);
+      });
+
+      return newState;
+    });
+  };
+
   if (loading) {
-    return <div style={{ padding: '20px' }}>Loading...</div>;
+    return <div className="p-5">Loading...</div>;
   }
 
   if (error) {
     return (
-      <div style={{ padding: '20px' }}>
-        <div style={{ padding: '10px', backgroundColor: '#f8d7da', color: '#721c24', border: '1px solid #f5c6cb', borderRadius: '4px', marginBottom: '12px' }}>
+      <div className="p-5">
+        <div className="p-2.5 bg-red-100 text-red-800 border border-red-200 rounded mb-3">
           {error}
         </div>
-        <Link to="/" style={{ color: '#007bff', textDecoration: 'none' }}>← Back to boards</Link>
+        <Link to="/" className="text-blue-600 no-underline hover:underline">← Back to boards</Link>
       </div>
     );
   }
@@ -154,7 +241,7 @@ export default function BoardPage() {
   const isAdmin = currentUser?.role === 'admin';
 
   return (
-    <div style={{ padding: '20px' }}>
+    <div className="p-5">
       {needsJoin && board && (
         <JoinBoardModal
           boardId={boardId}
@@ -165,32 +252,35 @@ export default function BoardPage() {
           }}
         />
       )}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-        <Link to="/" style={{ color: '#007bff', textDecoration: 'none', fontSize: '0.9rem' }}>← Back to boards</Link>
+      <div className="flex justify-between items-center mb-2">
+        <Link to="/" className="text-blue-600 no-underline hover:underline text-sm">← Back to boards</Link>
         {currentUser && (
-          <span style={{ fontSize: '0.9rem', color: '#555' }}>
+          <span className="text-sm text-gray-600">
             Logged in as <strong>{currentUser.name}</strong> ({currentUser.role})
           </span>
         )}
       </div>
-      <h2 style={{ margin: '8px 0 20px 0' }}>{board?.name}</h2>
-      <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start', overflowX: 'auto', paddingBottom: '16px' }}>
-        {columns.map((col) => (
-          <ColumnComponent
-            key={col.id}
-            column={col}
-            cards={cardsByColumn[col.id] ?? []}
-            boardId={boardId}
-            isAdmin={isAdmin}
-            onCardCreated={handleCardCreated}
-            onCardUpdated={handleCardUpdated}
-            onCardDeleted={handleCardDeleted}
-            onColumnUpdated={handleColumnUpdated}
-            onColumnDeleted={handleColumnDeleted}
-          />
-        ))}
-        {isAdmin && <ColumnForm boardId={boardId} onColumnCreated={handleColumnCreated} />}
-      </div>
+      <h2 className="my-2 mb-5 text-2xl font-bold">{board?.name}</h2>
+      
+      <DragDropContext onDragEnd={onDragEnd}>
+        <div className="flex gap-4 items-start overflow-x-auto pb-4">
+          {columns.map((col) => (
+            <ColumnComponent
+              key={col.id}
+              column={col}
+              cards={cardsByColumn[col.id] ?? []}
+              boardId={boardId}
+              isAdmin={isAdmin}
+              onCardCreated={handleCardCreated}
+              onCardUpdated={handleCardUpdated}
+              onCardDeleted={handleCardDeleted}
+              onColumnUpdated={handleColumnUpdated}
+              onColumnDeleted={handleColumnDeleted}
+            />
+          ))}
+          {isAdmin && <ColumnForm boardId={boardId} onColumnCreated={handleColumnCreated} />}
+        </div>
+      </DragDropContext>
     </div>
   );
 }

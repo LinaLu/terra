@@ -17,7 +17,7 @@ export default function BoardList({ boards, onGenerateLink }: BoardListProps) {
 
   if (boards.length === 0) {
     return (
-      <div style={{ padding: '20px', color: '#666' }}>
+      <div className="p-5 text-gray-600">
         No boards yet. Create your first board above!
       </div>
     );
@@ -30,9 +30,9 @@ export default function BoardList({ boards, onGenerateLink }: BoardListProps) {
   };
 
   return (
-    <div style={{ padding: '20px' }}>
-      <h2>Boards</h2>
-      <ul style={{ listStyle: 'none', padding: 0 }}>
+    <div className="p-5">
+      <h2 className="text-2xl font-bold mb-4">Boards</h2>
+      <ul className="list-none p-0">
         {boards.map((board) => {
           const active = isLinkActive(board);
           const shareUrl = active ? `${window.location.origin}/b/${board.short_code}` : null;
@@ -40,36 +40,20 @@ export default function BoardList({ boards, onGenerateLink }: BoardListProps) {
           return (
             <li
               key={board.id}
-              style={{
-                padding: '10px',
-                margin: '10px 0',
-                border: '1px solid #ddd',
-                borderRadius: '4px',
-                backgroundColor: '#f9f9f9',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-              }}
+              className="p-2.5 my-2.5 border border-gray-300 rounded bg-gray-50 flex justify-between items-center"
             >
-              <Link to={`/boards/${board.id}`} style={{ fontWeight: 'bold', color: '#007bff', textDecoration: 'none' }}>
+              <Link to={`/boards/${board.id}`} className="font-bold text-blue-600 no-underline hover:underline">
                 {board.name}
               </Link>
               <div>
                 {active && shareUrl ? (
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-                    <code style={{ backgroundColor: '#eee', padding: '2px 6px', borderRadius: '4px', fontSize: '14px' }}>
+                  <span className="inline-flex items-center gap-2">
+                    <code className="bg-gray-200 px-1.5 py-0.5 rounded text-sm">
                       {shareUrl}
                     </code>
                     <button
                       onClick={() => handleCopy(board.id, shareUrl)}
-                      style={{
-                        padding: '4px 8px',
-                        backgroundColor: '#28a745',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '4px',
-                        cursor: 'pointer',
-                      }}
+                      className="px-2 py-1 bg-green-600 hover:bg-green-700 text-white border-none rounded cursor-pointer"
                     >
                       {copiedBoardId === board.id ? 'Copied!' : 'Copy'}
                     </button>
@@ -77,14 +61,7 @@ export default function BoardList({ boards, onGenerateLink }: BoardListProps) {
                 ) : (
                   <button
                     onClick={() => onGenerateLink?.(board.id)}
-                    style={{
-                      padding: '4px 8px',
-                      backgroundColor: '#007bff',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '4px',
-                      cursor: 'pointer',
-                    }}
+                    className="px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white border-none rounded cursor-pointer"
                   >
                     Generate link
                   </button>

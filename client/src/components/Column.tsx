@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Droppable, Draggable } from '@hello-pangea/dnd';
 import { Column as ColumnType, Card, cardApi, columnApi } from '../services/api';
 import CardForm from './CardForm';
 
@@ -116,43 +117,43 @@ export default function Column({ column, cards, boardId, isAdmin, onCardCreated,
   };
 
   return (
-    <div style={{ flex: 1, minWidth: '240px', display: 'flex', flexDirection: 'column', border: '1px solid #ddd', borderRadius: '4px', padding: '12px', backgroundColor: '#f9f9f9' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', borderBottom: '2px solid #007bff', paddingBottom: '6px' }}>
+    <div className="flex-1 min-w-[240px] flex flex-col border border-gray-300 rounded p-3 bg-gray-50">
+      <div className="flex justify-between items-center mb-3 border-b-2 border-blue-600 pb-1.5">
         {isEditingColumn ? (
-          <div style={{ display: 'flex', gap: '4px', width: '100%' }}>
+          <div className="flex gap-1 w-full">
             <input
               type="text"
               value={columnName}
               onChange={(e) => setColumnName(e.target.value)}
-              style={{ flex: 1, padding: '4px', fontSize: '0.9rem', border: '1px solid #ccc', borderRadius: '4px' }}
+              className="flex-1 p-1 text-sm border border-gray-300 rounded"
             />
             <button
               onClick={handleSaveColumnEdit}
               disabled={isSubmitting || !columnName.trim()}
-              style={{ padding: '2px 6px', fontSize: '0.75rem', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px' }}
+              className="px-2 py-0.5 text-xs bg-blue-600 text-white rounded disabled:opacity-50"
             >
               Save
             </button>
             <button
               onClick={() => { setIsEditingColumn(false); setColumnName(column.name); }}
               disabled={isSubmitting}
-              style={{ padding: '2px 6px', fontSize: '0.75rem', backgroundColor: 'transparent', border: '1px solid #ccc', borderRadius: '4px' }}
+              className="px-2 py-0.5 text-xs bg-transparent border border-gray-300 rounded"
             >
               Cancel
             </button>
           </div>
         ) : (
           <>
-            <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 'bold' }}>
+            <h3 className="m-0 text-base font-bold">
               {column.name}
             </h3>
             {isAdmin && (
-              <div style={{ display: 'flex', gap: '6px' }}>
+              <div className="flex gap-1.5">
                 <button
                   onClick={() => setIsEditingColumn(true)}
                   disabled={isSubmitting}
                   title="Rename column"
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.8rem', color: '#007bff' }}
+                  className="bg-transparent border-none cursor-pointer text-xs text-blue-600"
                 >
                   ✏️
                 </button>
@@ -160,7 +161,7 @@ export default function Column({ column, cards, boardId, isAdmin, onCardCreated,
                   onClick={handleDeleteColumn}
                   disabled={isSubmitting}
                   title="Delete column"
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.8rem', color: '#dc3545' }}
+                  className="bg-transparent border-none cursor-pointer text-xs text-red-600"
                 >
                   🗑️
                 </button>
@@ -169,102 +170,113 @@ export default function Column({ column, cards, boardId, isAdmin, onCardCreated,
           </>
         )}
       </div>
-      <div style={{ flex: 1 }}>
-        {cards.map((card) => (
-          <div key={card.id} style={{ padding: '8px', marginBottom: '8px', backgroundColor: 'white', border: '1px solid #e0e0e0', borderRadius: '4px' }}>
-            {editingCardId === card.id ? (
-              <div style={{ marginBottom: '8px' }}>
-                <textarea
-                  value={editContent}
-                  onChange={(e) => setEditContent(e.target.value)}
-                  style={{ width: '100%', padding: '6px', fontSize: '0.9rem', border: '1px solid #ccc', borderRadius: '4px', resize: 'vertical', boxSizing: 'border-box', marginBottom: '4px' }}
-                  rows={3}
-                />
-                <div style={{ display: 'flex', gap: '4px' }}>
-                  <button
-                    onClick={() => handleSaveEdit(card.id)}
-                    disabled={isSubmitting || !editContent.trim()}
-                    style={{ padding: '4px 8px', fontSize: '0.8rem', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: (isSubmitting || !editContent.trim()) ? 'not-allowed' : 'pointer' }}
+      <Droppable droppableId={String(column.id)}>
+        {(provided) => (
+          <div 
+            className="flex-1 min-h-[50px]"
+            ref={provided.innerRef} 
+            {...provided.droppableProps}
+          >
+            {cards.map((card, index) => (
+              <Draggable key={card.id} draggableId={String(card.id)} index={index}>
+                {(provided, snapshot) => (
+                  <div
+                    ref={provided.innerRef}
+                    {...provided.draggableProps}
+                    {...provided.dragHandleProps}
+                    className={`p-2 mb-2 bg-white border border-gray-300 rounded ${
+                      snapshot.isDragging ? 'shadow-lg ring-2 ring-blue-500' : ''
+                    }`}
                   >
-                    Save
-                  </button>
-                  <button
-                    onClick={handleCancelEdit}
-                    disabled={isSubmitting}
-                    style={{ padding: '4px 8px', fontSize: '0.8rem', backgroundColor: '#f8f9fa', color: '#333', border: '1px solid #ccc', borderRadius: '4px', cursor: isSubmitting ? 'not-allowed' : 'pointer' }}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <p style={{ margin: '0 0 6px 0', fontSize: '0.9rem', lineHeight: '1.4' }}>{card.content}</p>
-            )}
-            
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '8px' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <span style={{ fontSize: '0.75rem', color: '#888' }}>
-                  {card.author} · {new Date(card.created_at).toLocaleDateString()}
-                </span>
-                <div style={{ display: 'flex', gap: '6px' }}>
-                  <button 
-                    onClick={() => handleEditClick(card)}
-                    disabled={isSubmitting}
-                    style={{ background: 'none', border: 'none', padding: 0, fontSize: '0.75rem', color: '#007bff', cursor: isSubmitting ? 'not-allowed' : 'pointer', textDecoration: 'underline' }}
-                  >
-                    Edit
-                  </button>
-                  <button 
-                    onClick={() => handleDeleteCard(card.id, card.column_id)}
-                    disabled={isSubmitting}
-                    style={{ background: 'none', border: 'none', padding: 0, fontSize: '0.75rem', color: '#dc3545', cursor: isSubmitting ? 'not-allowed' : 'pointer', textDecoration: 'underline' }}
-                  >
-                    Delete
-                  </button>
-                </div>
-              </div>
-              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', backgroundColor: '#f0f4f8', border: '1px solid #d0d7de', borderRadius: '12px', padding: '2px 8px' }}>
-                <button
-                  onClick={() => handleUpvote(card.id)}
-                  disabled={votingId === card.id}
-                  title="Upvote"
-                  aria-label="Upvote"
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    cursor: votingId === card.id ? 'not-allowed' : 'pointer',
-                    fontSize: '0.8rem',
-                    padding: '0',
-                    lineHeight: '1',
-                  }}
-                >
-                  👍
-                </button>
-                <span style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#007bff' }}>
-                  {card.votes ?? 0}
-                </span>
-                <button
-                  onClick={() => handleDownvote(card.id)}
-                  disabled={votingId === card.id || (card.votes ?? 0) <= 0}
-                  title="Downvote"
-                  aria-label="Downvote"
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    cursor: votingId === card.id || (card.votes ?? 0) <= 0 ? 'not-allowed' : 'pointer',
-                    opacity: (card.votes ?? 0) <= 0 ? 0.5 : 1,
-                    fontSize: '0.8rem',
-                    padding: '0',
-                    lineHeight: '1',
-                  }}
-                >
-                  👎
-                </button>
-              </div>
-            </div>
+                    {editingCardId === card.id ? (
+                      <div className="mb-2">
+                        <textarea
+                          value={editContent}
+                          onChange={(e) => setEditContent(e.target.value)}
+                          className="w-full p-1.5 text-sm border border-gray-300 rounded resize-y mb-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          rows={3}
+                        />
+                        <div className="flex gap-1">
+                          <button
+                            onClick={() => handleSaveEdit(card.id)}
+                            disabled={isSubmitting || !editContent.trim()}
+                            className="px-2 py-1 text-xs bg-blue-600 text-white rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-700"
+                          >
+                            Save
+                          </button>
+                          <button
+                            onClick={handleCancelEdit}
+                            disabled={isSubmitting}
+                            className="px-2 py-1 text-xs bg-gray-100 text-gray-700 border border-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-200"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="m-0 mb-1.5 text-sm leading-relaxed">{card.content}</p>
+                    )}
+
+                    <div className="flex justify-between items-center mt-2">
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-xs text-gray-500">
+                          {card.author} · {new Date(card.created_at).toLocaleDateString()}
+                        </span>
+                        <div className="flex gap-1.5">
+                          <button
+                            onClick={() => handleEditClick(card)}
+                            disabled={isSubmitting}
+                            className="p-0 border-none bg-transparent text-xs text-blue-600 hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => handleDeleteCard(card.id, card.column_id)}
+                            disabled={isSubmitting}
+                            className="p-0 border-none bg-transparent text-xs text-red-600 hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                      <div className="inline-flex items-center gap-1 bg-slate-50 border border-slate-300 rounded-full px-2 py-0.5">
+                        <button
+                          onClick={() => handleUpvote(card.id)}
+                          disabled={votingId === card.id}
+                          title="Upvote"
+                          aria-label="Upvote"
+                          className={`bg-transparent border-none text-xs p-0 leading-none ${
+                            votingId === card.id ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:scale-110 transition-transform'
+                          }`}
+                        >
+                          👍
+                        </button>
+                        <span className="text-xs font-bold text-blue-600">
+                          {card.votes ?? 0}
+                        </span>
+                        <button
+                          onClick={() => handleDownvote(card.id)}
+                          disabled={votingId === card.id || (card.votes ?? 0) <= 0}
+                          title="Downvote"
+                          aria-label="Downvote"
+                          className={`bg-transparent border-none text-xs p-0 leading-none ${
+                            votingId === card.id || (card.votes ?? 0) <= 0 
+                              ? 'cursor-not-allowed opacity-50' 
+                              : 'cursor-pointer hover:scale-110 transition-transform'
+                          }`}
+                        >
+                          👎
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </Draggable>
+            ))}
+            {provided.placeholder}
           </div>
-        ))}
-      </div>
+        )}
+      </Droppable>
       <CardForm boardId={boardId} columnId={column.id} onCardCreated={onCardCreated} />
     </div>
   );

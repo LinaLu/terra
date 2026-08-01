@@ -71,6 +71,7 @@ class Card(Base):
     content = Column(String, nullable=False)
     author_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     votes = Column(Integer, nullable=False, default=0)
+    position = Column(Integer, nullable=False, default=0)
     created_at = Column(DateTime(timezone=True), nullable=False)
     
     author_user = relationship("User")

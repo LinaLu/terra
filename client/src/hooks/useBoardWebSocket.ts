@@ -5,7 +5,8 @@ type WebSocketMessage =
   | { type: 'card_created' | 'card_updated'; data: Card }
   | { type: 'column_created' | 'column_updated'; data: Column }
   | { type: 'column_deleted'; data: { id: number } }
-  | { type: 'card_deleted'; data: { id: number; column_id: number } };
+  | { type: 'card_deleted'; data: { id: number; column_id: number } }
+  | { type: 'cards_reordered'; data: Card[] };
 
 export function useBoardWebSocket(
   boardId: number | null | undefined,
@@ -14,7 +15,8 @@ export function useBoardWebSocket(
   onColumnCreated: (column: Column) => void,
   onCardDeleted?: (cardId: number, columnId: number) => void,
   onColumnUpdated?: (column: Column) => void,
-  onColumnDeleted?: (columnId: number) => void
+  onColumnDeleted?: (columnId: number) => void,
+  onCardsReordered?: (cards: Card[]) => void
 ) {
   const onCardCreatedRef = useRef(onCardCreated);
   const onCardUpdatedRef = useRef(onCardUpdated);
@@ -22,6 +24,7 @@ export function useBoardWebSocket(
   const onCardDeletedRef = useRef(onCardDeleted);
   const onColumnUpdatedRef = useRef(onColumnUpdated);
   const onColumnDeletedRef = useRef(onColumnDeleted);
+  const onCardsReorderedRef = useRef(onCardsReordered);
 
   useEffect(() => {
     onCardCreatedRef.current = onCardCreated;
@@ -30,7 +33,8 @@ export function useBoardWebSocket(
     onCardDeletedRef.current = onCardDeleted;
     onColumnUpdatedRef.current = onColumnUpdated;
     onColumnDeletedRef.current = onColumnDeleted;
-  }, [onCardCreated, onCardUpdated, onColumnCreated, onCardDeleted, onColumnUpdated, onColumnDeleted]);
+    onCardsReorderedRef.current = onCardsReordered;
+  }, [onCardCreated, onCardUpdated, onColumnCreated, onCardDeleted, onColumnUpdated, onColumnDeleted, onCardsReordered]);
 
   useEffect(() => {
     if (!boardId) return;
@@ -64,6 +68,8 @@ export function useBoardWebSocket(
             if (onCardDeletedRef.current) {
               onCardDeletedRef.current(payload.data.id, payload.data.column_id);
             }
+          } else if (payload.type === 'cards_reordered' && onCardsReorderedRef.current) {
+            onCardsReorderedRef.current(payload.data);
           }
         } catch (err) {
           console.error('Error parsing WebSocket message:', err);
